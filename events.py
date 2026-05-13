@@ -26,25 +26,27 @@ def _emit(payload: dict) -> None:
     print(json.dumps(payload, ensure_ascii=False), flush=True)
 
 
-def session_start(topic: str, agents: list, max_rounds: int) -> None:
+def session_start(topic: str, agents: list, discussion_rounds: int) -> None:
     _emit({
         "type": "session_start",
         "topic": topic,
         "agents": [{"name": a["name"], "role": a["role"], "model": a["model"]} for a in agents],
-        "max_rounds": max_rounds,
+        "discussion_rounds": discussion_rounds,
         "ui": {"label": _UI["session_start"], "topic_label": "Topic", "agents_label": "Members"},
     })
 
 
-def facilitator_framing(definition: str, questions: list) -> None:
+def facilitator_framing(definition: str, questions: list, output_type: str = "general") -> None:
     _emit({
         "type": "facilitator_framing",
         "definition": definition,
         "questions": questions,
+        "output_type": output_type,
         "ui": {
             "label": _UI["facilitator_framing"],
             "definition_label": "Definition",
             "questions_label": "Key Questions",
+            "output_type_label": "Output Type",
         },
     })
 
@@ -106,11 +108,10 @@ def synthesis(output: dict) -> None:
         **output,
         "ui": {
             "label": _UI["synthesis"],
-            "summary_label": "executive summary",
-            "insights_label": "key insights",
-            "convergence_label": "convergence",
-            "divergence_label": "divergence",
-            "recommendations_label": "recommendations",
+            "output_type_label": "output type",
+            "deliverable_label": "deliverable",
+            "summary_label": "summary",
+            "key_decisions_label": "key decisions",
             "open_questions_label": "open questions",
         },
     })

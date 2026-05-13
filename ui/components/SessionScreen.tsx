@@ -84,7 +84,7 @@ function reducer(state: SessionState, action: Action): SessionState {
 }
 
 const INITIAL: SessionState = {
-  topic: "", maxRounds: 3, status: "waiting",
+  topic: "", discussionRounds: 3, status: "waiting",
   framing: null, rounds: [], currentRound: 0,
   reviews: [], synthesis: null, error: null,
 }
@@ -103,7 +103,7 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
 
   const [state, dispatch] = useReducer(
     reducer,
-    initialState ?? { ...INITIAL, topic: config.topic, maxRounds: config.max_rounds },
+    initialState ?? { ...INITIAL, topic: config.topic, discussionRounds: config.discussion_rounds },
   )
   const procRef   = useRef<ReturnType<typeof Bun.spawn> | null>(null)
   const hasSaved  = useRef(false)
@@ -201,12 +201,11 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
         break
       case "synthesis":
         dispatch({ type: "SYNTHESIS", output: {
-          executive_summary:  ev.executive_summary,
-          key_insights:       ev.key_insights,
-          convergence_points: ev.convergence_points,
-          divergence_points:  ev.divergence_points,
-          recommendations:    ev.recommendations,
-          open_questions:     ev.open_questions,
+          output_type:    ev.output_type,
+          deliverable:    ev.deliverable,
+          summary:        ev.summary,
+          key_decisions:  ev.key_decisions,
+          open_questions: ev.open_questions,
         }})
         break
       case "session_end":
@@ -407,23 +406,18 @@ function SynthesisCard({ synthesis }: { synthesis: SynthesisOutput }) {
   return (
     <box
       style={{ flexDirection: "column", borderStyle: "rounded", borderColor: C.purple, padding: 1, gap: 1, width: "100%" }}
-      title=" ◈ synthesis "
+      title={` ◈ synthesis — ${synthesis.output_type} `}
     >
       <box style={{ flexDirection: "column", gap: 0 }}>
-        <text fg={C.purple}>executive summary</text>
-        <text fg={C.text}>{synthesis.executive_summary}</text>
+        <text fg={C.purple}>summary</text>
+        <text fg={C.muted}>{synthesis.summary}</text>
       </box>
-      {synthesis.key_insights.length > 0 && (
-        <BulletList label="key insights" items={synthesis.key_insights} color={C.blue} bullet="▸" />
-      )}
-      {synthesis.convergence_points.length > 0 && (
-        <BulletList label="convergence" items={synthesis.convergence_points} color={C.green} bullet="✓" />
-      )}
-      {synthesis.divergence_points.length > 0 && (
-        <BulletList label="divergence" items={synthesis.divergence_points} color={C.orange} bullet="⟷" />
-      )}
-      {synthesis.recommendations.length > 0 && (
-        <BulletList label="recommendations" items={synthesis.recommendations} color={C.cyan} bullet="→" />
+      <box style={{ flexDirection: "column", gap: 0 }}>
+        <text fg={C.purple}>deliverable</text>
+        <text fg={C.text}>{synthesis.deliverable}</text>
+      </box>
+      {synthesis.key_decisions.length > 0 && (
+        <BulletList label="key decisions" items={synthesis.key_decisions} color={C.cyan} bullet="→" />
       )}
       {synthesis.open_questions.length > 0 && (
         <BulletList label="open questions" items={synthesis.open_questions} color={C.muted} bullet="?" />

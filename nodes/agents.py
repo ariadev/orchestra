@@ -28,7 +28,10 @@ _HUMAN_TMPL = """\
 ## Key questions the discussion must answer
 {questions}
 
-## Discussion so far (previous rounds + current round)
+## Round {current_round} of {total_rounds}
+{round_guidance}
+
+## Discussion so far
 {prior}
 
 ## Your turn
@@ -37,9 +40,19 @@ If others have raised good points, acknowledge and build on them. \
 If you disagree, say so clearly and explain why.
 """
 
+_FINAL_ROUND_GUIDANCE = (
+    "This is the final round. Drive toward concrete conclusions. "
+    "Be decisive — synthesise your position rather than opening new threads."
+)
+_MID_ROUND_GUIDANCE = (
+    "More rounds follow. Focus on raising important points, probing assumptions, "
+    "and challenging weak reasoning."
+)
+
 
 def run_agents_node(state: DiscussionState) -> dict:
     current_round = state["current_round"] + 1
+    total_rounds = state["discussion_rounds"]
     framing = state["framing"]
     definition = framing["definition"]
     questions_block = "\n".join(f"{i+1}. {q}" for i, q in enumerate(framing["questions"]))
@@ -60,10 +73,14 @@ def run_agents_node(state: DiscussionState) -> dict:
                 persona=agent_cfg["persona"],
             )
         )
+        is_final = current_round >= total_rounds
         human_msg = HumanMessage(
             content=_HUMAN_TMPL.format(
                 definition=definition,
                 questions=questions_block,
+                current_round=current_round,
+                total_rounds=total_rounds,
+                round_guidance=_FINAL_ROUND_GUIDANCE if is_final else _MID_ROUND_GUIDANCE,
                 prior=prior_block or "(No prior discussion — you are the first to speak.)",
             )
         )

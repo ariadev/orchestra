@@ -2,6 +2,30 @@ export type Model = "gpt-5.4" | "gpt-5.4-mini" | "gpt-5.4-nano"
 
 export const MODELS: Model[] = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"]
 
+export type OutputMode = "content" | "technical_report" | "product_spec" | "strategy" | "decision_brief" | "general"
+
+export const OUTPUT_MODES: OutputMode[] = [
+  "content", "technical_report", "product_spec", "strategy", "decision_brief", "general",
+]
+
+export const MODE_LABELS: Record<OutputMode, string> = {
+  content:          "content",
+  technical_report: "tech report",
+  product_spec:     "product spec",
+  strategy:         "strategy",
+  decision_brief:   "decision",
+  general:          "general",
+}
+
+export const MODE_SUBTITLES: Record<OutputMode, string> = {
+  content:          "The output will be the finished piece — article, ad copy, script, email, or social post",
+  technical_report: "The output will be a technical document — ADR, design doc, system design, or eng spec",
+  product_spec:     "The output will be a product spec — PRD, feature brief, UX spec, or user-story map",
+  strategy:         "The output will be a strategic plan — marketing, SEO, go-to-market, or campaign",
+  decision_brief:   "The output will be a decision memo with recommendation, rationale, and next steps",
+  general:          "The output will be a structured synthesis of insights, agreements, and recommendations",
+}
+
 export interface AgentConfig {
   name: string
   role: string
@@ -12,7 +36,8 @@ export interface AgentConfig {
 export interface SessionConfig {
   topic: string
   agents: AgentConfig[]
-  max_rounds: number
+  discussion_rounds: number
+  output_type: OutputMode
 }
 
 // ── Orchestra event types ────────────────────────────────────────────────────
@@ -27,7 +52,7 @@ export interface SessionStartEvent extends BaseEvent {
   type: "session_start"
   topic: string
   agents: Array<{ name: string; role: string; model: string }>
-  max_rounds: number
+  discussion_rounds: number
 }
 
 export interface FacilitatorFramingEvent extends BaseEvent {
@@ -68,11 +93,10 @@ export interface ReviewEvent extends BaseEvent {
 }
 
 export interface SynthesisOutput {
-  executive_summary: string
-  key_insights: string[]
-  convergence_points: string[]
-  divergence_points: string[]
-  recommendations: string[]
+  output_type: string
+  deliverable: string
+  summary: string
+  key_decisions: string[]
   open_questions: string[]
 }
 
@@ -118,7 +142,7 @@ export interface RoundData {
 
 export interface SessionState {
   topic: string
-  maxRounds: number
+  discussionRounds: number
   status: "waiting" | "framing" | "running" | "reviewing" | "synthesizing" | "done" | "error"
   framing: { definition: string; questions: string[] } | null
   rounds: RoundData[]

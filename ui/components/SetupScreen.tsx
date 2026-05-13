@@ -1,41 +1,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { TextareaRenderable } from "@opentui/core"
-import { C, MODELS, type AgentConfig, type Model, type SessionConfig } from "../types"
+import { C, MODELS, OUTPUT_MODES, MODE_LABELS, MODE_SUBTITLES, type AgentConfig, type Model, type OutputMode, type SessionConfig } from "../types"
 
 const AGENT_COLORS = ["#58a6ff", "#3fb950", "#bc8cff", "#d29922", "#56d4dd", "#e3b341"]
+
+const ROUND_SUBTITLES: Record<number, string> = {
+  1: "Single pass — fast, lightweight, best for simple or well-defined topics",
+  2: "One follow-up — quick refinement after the initial exchange",
+  3: "Standard depth — agents revisit and challenge each other twice",
+  4: "Extended deliberation — good for ambiguous or high-stakes topics",
+  5: "Maximum depth — most thorough, expect longer runtime and higher cost",
+}
 
 type FocusField =
   | "topic" | "members" | "addBtn"
   | "name" | "role" | "persona" | "model" | "add" | "cancel"
-  | "maxRounds" | "start"
+  | "outputMode" | "discussionRounds" | "start"
 
 interface Props {
   onStart: (config: SessionConfig) => void
 }
 
 export function SetupScreen({ onStart }: Props) {
-  const [focus, setFocus]               = useState<FocusField>("topic")
-  const [topic, setTopic]               = useState("")
-  const [agents, setAgents]             = useState<AgentConfig[]>([])
-  const [name, setName]                 = useState("")
-  const [role, setRole]                 = useState("")
-  const [persona, setPersona]           = useState("")
-  const [modelIdx, setModelIdx]         = useState(0)
-  const [maxRounds, setMaxRounds]       = useState(3)
-  const [error, setError]               = useState("")
+  const [focus, setFocus] = useState<FocusField>("topic")
+  const [topic, setTopic] = useState("")
+  const [agents, setAgents] = useState<AgentConfig[]>([])
+  const [name, setName] = useState("")
+  const [role, setRole] = useState("")
+  const [persona, setPersona] = useState("")
+  const [modelIdx, setModelIdx] = useState(0)
+  const [outputModeIdx, setOutputModeIdx] = useState(OUTPUT_MODES.indexOf("general" as OutputMode))
+  const [discussionRounds, setDiscussionRounds] = useState(3)
+  const [error, setError] = useState("")
   const [selectedMember, setSelectedMember] = useState(0)
-  const [editingIdx, setEditingIdx]     = useState(-1)
-  const [formOpen, setFormOpen]         = useState(false)
-  const [formKey, setFormKey]           = useState(0)
+  const [editingIdx, setEditingIdx] = useState(-1)
+  const [formOpen, setFormOpen] = useState(false)
+  const [formKey, setFormKey] = useState(0)
 
-  const topicRef   = useRef<TextareaRenderable>(null)
+  const topicRef = useRef<TextareaRenderable>(null)
   const personaRef = useRef<TextareaRenderable>(null)
 
   const model = MODELS[modelIdx]
+  const outputMode = OUTPUT_MODES[outputModeIdx]
 
   // Auto-grow: height tracks newlines in the text
-  const topicHeight   = Math.max(1, topic.split("\n").length)
+  const topicHeight = Math.max(1, topic.split("\n").length)
   const personaHeight = Math.max(1, persona.split("\n").length)
 
   const fieldOrder = useMemo((): FocusField[] => {
@@ -43,7 +53,7 @@ export function SetupScreen({ onStart }: Props) {
     if (agents.length > 0 && !formOpen) order.push("members")
     order.push("addBtn")
     if (formOpen) order.push("name", "role", "persona", "model", "add", "cancel")
-    order.push("maxRounds", "start")
+    order.push("outputMode", "discussionRounds", "start")
     return order
   }, [agents.length, formOpen])
 
@@ -90,8 +100,8 @@ export function SetupScreen({ onStart }: Props) {
   }, [agents.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addOrUpdateAgent = useCallback(() => {
-    const currentName    = name.trim()
-    const currentRole    = role.trim()
+    const currentName = name.trim()
+    const currentRole = role.trim()
     const currentPersona = (personaRef.current?.plainText ?? persona).trim()
 
     if (!currentName || !currentRole || !currentPersona) {
@@ -160,50 +170,56 @@ export function SetupScreen({ onStart }: Props) {
 
   const startSession = useCallback(() => {
     const currentTopic = (topicRef.current?.plainText ?? topic).trim()
-    if (!currentTopic)       { setError("topic is required"); setFocus("topic"); return }
+    if (!currentTopic) { setError("topic is required"); setFocus("topic"); return }
     if (agents.length === 0) { setError("add at least one participant"); setFocus("addBtn"); return }
     setError("")
-    onStart({ topic: currentTopic, agents, max_rounds: maxRounds })
-  }, [topic, agents, maxRounds, onStart])
+    onStart({ topic: currentTopic, agents, discussion_rounds: discussionRounds, output_type: outputMode })
+  }, [topic, agents, discussionRounds, onStart])
 
   const isTextareaFocus = focus === "topic" || focus === "persona"
 
   useKeyboard((key) => {
     if (key.name === "tab" && !key.shift) { nextFocus(); return }
-    if (key.name === "tab" && key.shift)  { prevFocus(); return }
+    if (key.name === "tab" && key.shift) { prevFocus(); return }
 
     if (key.name === "escape" && formOpen) { cancelForm(agents.length); return }
 
     if (focus === "addBtn" && key.name === "return") { openForm(); return }
 
     if (focus === "members") {
-      if (key.name === "up"   && !key.meta) { setSelectedMember(i => Math.max(0, i - 1)); return }
+      if (key.name === "up" && !key.meta) { setSelectedMember(i => Math.max(0, i - 1)); return }
       if (key.name === "down" && !key.meta) { setSelectedMember(i => Math.min(agents.length - 1, i + 1)); return }
-      if (key.ctrl && key.name === "d")     { removeAgentAt(selectedMember, agents.length); return }
-      if (key.ctrl && key.name === "e")     { startEditing(selectedMember); return }
-      if (key.meta && key.name === "up")    { moveAgentUp(selectedMember); return }
-      if (key.meta && key.name === "down")  { moveAgentDown(selectedMember, agents.length); return }
+      if (key.ctrl && key.name === "d") { removeAgentAt(selectedMember, agents.length); return }
+      if (key.ctrl && key.name === "e") { startEditing(selectedMember); return }
+      if (key.meta && key.name === "up") { moveAgentUp(selectedMember); return }
+      if (key.meta && key.name === "down") { moveAgentDown(selectedMember, agents.length); return }
     }
 
     if (focus === "model") {
       if (key.name === "right" || key.name === "l") setModelIdx(i => (i + 1) % MODELS.length)
-      if (key.name === "left"  || key.name === "h") setModelIdx(i => (i - 1 + MODELS.length) % MODELS.length)
+      if (key.name === "left" || key.name === "h") setModelIdx(i => (i - 1 + MODELS.length) % MODELS.length)
     }
 
-    if (focus === "maxRounds") {
-      if (key.name === "right" || key.name === "l") setMaxRounds(r => Math.min(5, r + 1))
-      if (key.name === "left"  || key.name === "h") setMaxRounds(r => Math.max(1, r - 1))
+    if (focus === "outputMode") {
+      if (key.name === "right" || key.name === "l") setOutputModeIdx(i => (i + 1) % OUTPUT_MODES.length)
+      if (key.name === "left" || key.name === "h") setOutputModeIdx(i => (i - 1 + OUTPUT_MODES.length) % OUTPUT_MODES.length)
+    }
+
+    if (focus === "discussionRounds") {
+      if (key.name === "right" || key.name === "l") setDiscussionRounds(r => Math.min(5, r + 1))
+      if (key.name === "left" || key.name === "h") setDiscussionRounds(r => Math.max(1, r - 1))
     }
 
     if (key.name === "return") {
-      if (focus === "add")    { addOrUpdateAgent();           return }
-      if (focus === "cancel") { cancelForm(agents.length);    return }
-      if (focus === "start")  { startSession();               return }
-      if (!isTextareaFocus)   { nextFocus() }
+      if (focus === "add") { addOrUpdateAgent(); return }
+      if (focus === "cancel") { cancelForm(agents.length); return }
+      if (focus === "start") { startSession(); return }
+      if (!isTextareaFocus) { nextFocus() }
     }
   })
 
   const membersBoxFocused = focus === "members" || focus === "addBtn" || formOpen
+  const settingsBoxFocused = focus === "outputMode" || focus === "discussionRounds"
 
   return (
     <box
@@ -385,25 +401,63 @@ export function SetupScreen({ onStart }: Props) {
         )}
       </box>
 
-      {/* Max rounds + start */}
-      <box style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
-        <text fg={focus === "maxRounds" ? C.blue : C.muted}>Max Rounds</text>
-        <box style={{ flexDirection: "row", gap: 1 }}>
-          {[1, 2, 3, 4, 5].map((n: number) => (
-            <text
-              key={n}
-              fg={maxRounds === n ? C.bg : C.muted}
-              bg={maxRounds === n ? (focus === "maxRounds" ? C.blue : C.border) : C.panel}
-              style={{ paddingLeft: 1, paddingRight: 1 }}
-            >
-              {n}
-            </text>
-          ))}
+      {/* Settings: Mode + Max Rounds */}
+      <box
+        style={{
+          flexDirection: "column",
+          borderStyle: settingsBoxFocused ? "rounded" : "single",
+          borderColor: settingsBoxFocused ? C.blue : C.border,
+          padding: 1,
+          width: "100%",
+          gap: 1,
+        }}
+        title=" Settings "
+      >
+        {/* Mode selector */}
+        <box style={{ flexDirection: "row", gap: 2 }}>
+          <box style={{ width: 18 }}>
+            <text fg={focus === "outputMode" ? C.text : C.muted}>Mode</text>
+          </box>
+          <box style={{ flexDirection: "column", gap: 0 }}>
+            <box style={{ flexDirection: "row", gap: 1, alignItems: "center" }}>
+              <text fg={focus === "outputMode" ? C.blue : C.border}>‹</text>
+              <text
+                fg={focus === "outputMode" ? C.text : C.muted}
+                bg={focus === "outputMode" ? C.panel : undefined}
+                style={{ paddingLeft: 1, paddingRight: 1 }}
+              >
+                {MODE_LABELS[outputMode]}
+              </text>
+              <text fg={focus === "outputMode" ? C.blue : C.border}>›</text>
+            </box>
+            <text fg={C.muted}>{MODE_SUBTITLES[outputMode]}</text>
+          </box>
         </box>
-        <text fg={C.muted}>← →</text>
 
-        <box style={{ flexGrow: 1 }} />
+        {/* Discussion Rounds */}
+        <box style={{ flexDirection: "row", gap: 2 }}>
+          <box style={{ width: 18 }}>
+            <text fg={focus === "discussionRounds" ? C.text : C.muted}>Discussion Rounds</text>
+          </box>
+          <box style={{ flexDirection: "column", gap: 0 }}>
+            <box style={{ flexDirection: "row", gap: 1, alignItems: "center" }}>
+              <text fg={focus === "discussionRounds" ? C.blue : C.border}>‹</text>
+              <text
+                fg={focus === "discussionRounds" ? C.text : C.muted}
+                bg={focus === "discussionRounds" ? C.panel : undefined}
+                style={{ paddingLeft: 1, paddingRight: 1 }}
+              >
+                {discussionRounds}
+              </text>
+              <text fg={focus === "discussionRounds" ? C.blue : C.border}>›</text>
+            </box>
+            <text fg={C.muted}>{ROUND_SUBTITLES[discussionRounds]}</text>
+          </box>
+        </box>
+      </box>
 
+      {/* Start */}
+      <box style={{ flexDirection: "row", justifyContent: "flex-end" }}>
         <box
           style={{
             borderStyle: "rounded",

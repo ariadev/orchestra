@@ -19,30 +19,23 @@ class AgentResponse(TypedDict):
 class FacilitatorOutput(TypedDict):
     definition: str
     questions: List[str]
-
-
-class ReviewDecision(TypedDict):
-    decision: str   # "continue" | "synthesize"
-    reason: str
-    round: int
+    output_type: str  # "content" | "technical_report" | "product_spec" | "strategy" | "decision_brief" | "general"
 
 
 class SynthesisOutput(TypedDict):
-    executive_summary: str
-    key_insights: List[str]
-    convergence_points: List[str]
-    divergence_points: List[str]
-    recommendations: List[str]
+    output_type: str       # mirrors framing.output_type
+    deliverable: str       # the actual artifact in markdown
+    summary: str           # 2–3 sentences describing what was produced
+    key_decisions: List[str]
     open_questions: List[str]
 
 
 class DiscussionState(TypedDict):
     topic: str
     agents_config: List[AgentConfig]
+    output_type: str  # user-selected mode; overrides facilitator auto-detection
     framing: Optional[FacilitatorOutput]
     responses: Annotated[List[AgentResponse], operator.add]
     current_round: int
-    max_rounds: int
-    review_decisions: Annotated[List[ReviewDecision], operator.add]
-    should_continue: bool
+    discussion_rounds: int
     synthesis: Optional[SynthesisOutput]

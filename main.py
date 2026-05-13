@@ -16,12 +16,12 @@ Input schema:
       "model":   "gpt-5.4" | "gpt-5.4-mini" | "gpt-5.4-nano"   (default: gpt-5.4)
     }
   ],
-  "max_rounds": 3   (optional, default 3, max 5)
+  "discussion_rounds": 3,   (optional, default 3, max 5)
+  "output_type": "general"  (optional, default "general")
 }
 """
 import json
 import sys
-import os
 
 from dotenv import load_dotenv
 
@@ -33,12 +33,14 @@ from models import AVAILABLE_MODELS
 from state import DiscussionState
 
 
-_MAX_ROUNDS_HARD_CAP = 5
-_DEFAULT_MAX_ROUNDS = 3
+_DEFAULT_ROUNDS = 3
+_MAX_ROUNDS_CAP = 5
+_VALID_OUTPUT_TYPES = {
+    "content", "technical_report", "product_spec", "strategy", "decision_brief", "general"
+}
 
 
 def _validate(cfg: dict) -> str | None:
-    """Return an error string or None if valid."""
     if not cfg.get("topic", "").strip():
         return "Field 'topic' is required and must be non-empty."
     agents = cfg.get("agents", [])
@@ -74,26 +76,27 @@ def main() -> None:
 
     topic: str = cfg["topic"].strip()
     agents_config: list = cfg["agents"]
-    max_rounds: int = min(
-        int(cfg.get("max_rounds", _DEFAULT_MAX_ROUNDS)),
-        _MAX_ROUNDS_HARD_CAP,
+    discussion_rounds: int = min(
+        int(cfg.get("discussion_rounds", _DEFAULT_ROUNDS)),
+        _MAX_ROUNDS_CAP,
     )
+    output_type: str = cfg.get("output_type", "general")
+    if output_type not in _VALID_OUTPUT_TYPES:
+        output_type = "general"
 
-    # Normalise agent models.
     for a in agents_config:
         a.setdefault("model", "gpt-5.4")
 
-    events.session_start(topic, agents_config, max_rounds)
+    events.session_start(topic, agents_config, discussion_rounds)
 
     initial_state: DiscussionState = {
         "topic": topic,
         "agents_config": agents_config,
+        "output_type": output_type,
         "framing": None,
         "responses": [],
         "current_round": 0,
-        "max_rounds": max_rounds,
-        "review_decisions": [],
-        "should_continue": True,
+        "discussion_rounds": discussion_rounds,
         "synthesis": None,
     }
 
