@@ -1,0 +1,128 @@
+"""
+Streaming NDJSON event emitter for opentui.
+Each call prints one JSON line to stdout.
+"""
+import json
+import sys
+from datetime import datetime
+
+# UI labels for opentui rendering
+_UI = {
+    "session_start":       "◆ session init",
+    "facilitator_framing": "⬡ framing",
+    "round_start":         "▶ round",
+    "agent_thinking":      "⠿ thinking",
+    "agent_response":      "  response",
+    "round_end":           "■ round complete",
+    "review":              "⊹ review",
+    "synthesis":           "◈ synthesis",
+    "session_end":         "◆ session end",
+    "error":               "✗ error",
+}
+
+
+def _emit(payload: dict) -> None:
+    payload["ts"] = datetime.utcnow().isoformat()
+    print(json.dumps(payload, ensure_ascii=False), flush=True)
+
+
+def session_start(topic: str, agents: list, max_rounds: int) -> None:
+    _emit({
+        "type": "session_start",
+        "topic": topic,
+        "agents": [{"name": a["name"], "role": a["role"], "model": a["model"]} for a in agents],
+        "max_rounds": max_rounds,
+        "ui": {"label": _UI["session_start"], "topic_label": "Topic", "agents_label": "Members"},
+    })
+
+
+def facilitator_framing(definition: str, questions: list) -> None:
+    _emit({
+        "type": "facilitator_framing",
+        "definition": definition,
+        "questions": questions,
+        "ui": {
+            "label": _UI["facilitator_framing"],
+            "definition_label": "Definition",
+            "questions_label": "Key Questions",
+        },
+    })
+
+
+def round_start(round_num: int) -> None:
+    _emit({
+        "type": "round_start",
+        "round": round_num,
+        "ui": {"label": f"{_UI['round_start']} {round_num}"},
+    })
+
+
+def agent_thinking(agent_name: str, role: str) -> None:
+    _emit({
+        "type": "agent_thinking",
+        "agent": agent_name,
+        "role": role,
+        "ui": {"label": f"{agent_name} — {_UI['agent_thinking']}"},
+    })
+
+
+def agent_response(agent_name: str, role: str, content: str, round_num: int) -> None:
+    _emit({
+        "type": "agent_response",
+        "agent": agent_name,
+        "role": role,
+        "content": content,
+        "round": round_num,
+        "ui": {"label": f"{_UI['agent_response']}: {agent_name}", "role_label": role},
+    })
+
+
+def round_end(round_num: int) -> None:
+    _emit({
+        "type": "round_end",
+        "round": round_num,
+        "ui": {"label": f"Final Round {round_num}"},
+    })
+
+
+def review(decision: str, reason: str, round_num: int) -> None:
+    decision_fa = "Continue" if decision == "continue" else "Synthesis"
+    _emit({
+        "type": "review",
+        "decision": decision,
+        "reason": reason,
+        "round": round_num,
+        "ui": {
+            "label": _UI["review"],
+            "decision_label": decision_fa,
+            "reason_label": "Reason",
+        },
+    })
+
+
+def synthesis(output: dict) -> None:
+    _emit({
+        "type": "synthesis",
+        **output,
+        "ui": {
+            "label": _UI["synthesis"],
+            "summary_label": "executive summary",
+            "insights_label": "key insights",
+            "convergence_label": "convergence",
+            "divergence_label": "divergence",
+            "recommendations_label": "recommendations",
+            "open_questions_label": "open questions",
+        },
+    })
+
+
+def session_end(total_rounds: int) -> None:
+    _emit({
+        "type": "session_end",
+        "total_rounds": total_rounds,
+        "ui": {"label": _UI["session_end"], "rounds_label": f"Rounds: {total_rounds}"},
+    })
+
+
+def error(message: str) -> None:
+    _emit({"type": "error", "message": message, "ui": {"label": _UI["error"]}})

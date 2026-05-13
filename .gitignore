@@ -1,0 +1,15 @@
+# Python
+*.pyc
+__pycache__/
+.venv/
+
+# Node.js
+node_modules/
+ui/node_modules/
+
+# IDEs and editors
+.idea/
+.claude/
+
+# Environment files
+.env

@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Orchestra — single-command launcher
+# Usage: ./run.sh [--setup]
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UI_DIR="$SCRIPT_DIR/ui"
+VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python3"
+BUN="${BUN_PATH:-}"
+
+# ── Colours ────────────────────────────────────────────────────────────────────
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; N='\033[0m'
+ok()   { echo -e "  ${G}✓${N}  $*"; }
+warn() { echo -e "  ${Y}!${N}  $*"; }
+err()  { echo -e "  ${R}✗${N}  $*" >&2; }
+hdr()  { echo -e "\n${B}$*${N}"; }
+
+# ── Find bun ───────────────────────────────────────────────────────────────────
+find_bun() {
+  for candidate in \
+    "$HOME/.bun/bin/bun" \
+    "/usr/local/bin/bun" \
+    "/opt/homebrew/bin/bun" \
+    "$(command -v bun 2>/dev/null || true)"
+  do
+    [ -x "$candidate" ] && { echo "$candidate"; return 0; }
+  done
+  return 1
+}
+
+BUN="$(find_bun)" || {
+  err "bun not found. Install it with:  curl -fsSL https://bun.com/install | bash"
+  exit 1
+}
+
+# ── --setup mode ───────────────────────────────────────────────────────────────
+if [[ "${1:-}" == "--setup" ]]; then
+  hdr "Orchestra — first-time setup"
+
+  # .env
+  if [ ! -f "$SCRIPT_DIR/.env" ]; then
+    cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
+    warn ".env created from .env.example — add your OPENAI_API_KEY"
+  else
+    ok ".env exists"
+  fi
+
+  # Python venv
+  if [ ! -f "$VENV_PYTHON" ]; then
+    hdr "Creating Python venv..."
+    uv venv "$SCRIPT_DIR/.venv"
+  else
+    ok "Python venv exists"
+  fi
+
+  # Python deps
+  hdr "Installing Python dependencies..."
+  uv pip install -r "$SCRIPT_DIR/requirements.txt"
+  ok "Python dependencies installed"
+
+  # UI deps
+  hdr "Installing UI dependencies..."
+  cd "$UI_DIR" && "$BUN" install
+  ok "UI dependencies installed"
+
+  echo -e "\n${G}Setup complete.${N} Run ${B}./run.sh${N} to start Orchestra.\n"
+  exit 0
+fi
+
+# ── Pre-flight checks ──────────────────────────────────────────────────────────
+FAIL=0
+
+# .env / API key
+if [ -f "$SCRIPT_DIR/.env" ]; then
+  # shellcheck disable=SC1090
+  set -o allexport; source "$SCRIPT_DIR/.env"; set +o allexport
+fi
+
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+  err "OPENAI_API_KEY is not set."
+  err "Add it to $SCRIPT_DIR/.env or export it in your shell."
+  FAIL=1
+fi
+
+# Python venv
+if [ ! -f "$VENV_PYTHON" ]; then
+  err "Python venv not found. Run:  ./run.sh --setup"
+  FAIL=1
+fi
+
+# UI node_modules
+if [ ! -d "$UI_DIR/node_modules" ]; then
+  err "UI dependencies not installed. Run:  ./run.sh --setup"
+  FAIL=1
+fi
+
+[ "$FAIL" -eq 1 ] && exit 1
+
+# ── Launch ─────────────────────────────────────────────────────────────────────
+exec "$BUN" run --cwd "$UI_DIR" index.tsx
