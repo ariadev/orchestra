@@ -97,4 +97,4 @@ fi
 [ "$FAIL" -eq 1 ] && exit 1
 
 # ── Launch ─────────────────────────────────────────────────────────────────────
-exec "$BUN" run --cwd "$UI_DIR" index.tsx
+exec "$BUN" run --cwd "$UI_DIR" index.tsx "$@"

@@ -1,11 +1,13 @@
-import { useEffect, useReducer, useRef } from "react"
-import { useKeyboard } from "@opentui/react"
+import { useEffect, useReducer, useRef, useState } from "react"
+import { useKeyboard, useTerminalDimensions } from "@opentui/react"
 import path from "path"
 import {
   C, AGENT_COLORS,
   type AgentEntry, type OrchestraEvent, type RoundData,
   type SessionConfig, type SessionState, type SynthesisOutput,
 } from "../types"
+import { generateKey, saveSession } from "../storage"
+import { generateSessionName } from "../naming"
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -92,15 +94,33 @@ const INITIAL: SessionState = {
 interface Props {
   config: SessionConfig
   onBack: () => void
+  initialState?: SessionState
+  sessionMeta?: { key: string; name: string }
 }
 
-export function SessionScreen({ config, onBack }: Props) {
-  const [state, dispatch] = useReducer(reducer, { ...INITIAL, topic: config.topic, maxRounds: config.max_rounds })
-  const procRef = useRef<ReturnType<typeof Bun.spawn> | null>(null)
+export function SessionScreen({ config, onBack, initialState, sessionMeta }: Props) {
+  const isViewer = !!initialState
 
-  // ── Subprocess ──────────────────────────────────────────────────────────────
+  const [state, dispatch] = useReducer(
+    reducer,
+    initialState ?? { ...INITIAL, topic: config.topic, maxRounds: config.max_rounds },
+  )
+  const procRef   = useRef<ReturnType<typeof Bun.spawn> | null>(null)
+  const hasSaved  = useRef(false)
+  const sessionKey = useRef(sessionMeta?.key ?? generateKey())
+
+  const { height: termHeight } = useTerminalDimensions()
+
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    sessionMeta ? "saved" : "idle"
+  )
+  const [savedName, setSavedName] = useState<string>(sessionMeta?.name ?? "")
+
+  // ── Subprocess (live mode only) ──────────────────────────────────────────────
 
   useEffect(() => {
+    if (isViewer) return
+
     let mounted = true
 
     const proc = Bun.spawn([PYTHON, MAIN_PY], {
@@ -141,7 +161,28 @@ export function SessionScreen({ config, onBack }: Props) {
       mounted = false
       try { proc.kill() } catch {}
     }
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-save on completion (live mode only) ─────────────────────────────────
+
+  useEffect(() => {
+    if (isViewer || state.status !== "done" || hasSaved.current) return
+    hasSaved.current = true
+    setSaveState("saving")
+
+    ;(async () => {
+      const name = await generateSessionName(config.topic)
+      setSavedName(name)
+      await saveSession({
+        key:    sessionKey.current,
+        name,
+        date:   new Date().toISOString(),
+        config,
+        state,
+      })
+      setSaveState("saved")
+    })()
+  }, [state.status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleEvent(ev: OrchestraEvent) {
     switch (ev.type) {
@@ -182,7 +223,7 @@ export function SessionScreen({ config, onBack }: Props) {
   // ── Keyboard ─────────────────────────────────────────────────────────────────
 
   useKeyboard((key) => {
-    if (key.name === "b" && state.status === "done") onBack()
+    if (key.name === "b" && (state.status === "done" || isViewer)) onBack()
     if (key.ctrl && key.name === "c") { try { procRef.current?.kill() } catch {}; onBack() }
   })
 
@@ -204,7 +245,7 @@ export function SessionScreen({ config, onBack }: Props) {
     running:      `round ${state.currentRound} — deliberating`,
     reviewing:    "reviewing...",
     synthesizing: "synthesizing...",
-    done:         `session complete • ${state.rounds.length} rounds • b to exit`,
+    done:         `complete • ${state.rounds.length} rounds • b to exit`,
     error:        "error",
   }
 
@@ -232,13 +273,21 @@ export function SessionScreen({ config, onBack }: Props) {
         <box style={{ flexDirection: "row", gap: 2 }}>
           <text fg={C.purple}>◆ ORCHESTRA</text>
           <text fg={C.muted}>•</text>
-          <text fg={C.text}>{config.topic.slice(0, 60)}{config.topic.length > 60 ? "…" : ""}</text>
+          <text fg={C.text}>{config.topic.slice(0, 50)}{config.topic.length > 50 ? "…" : ""}</text>
+          {saveState === "saving" && <text fg={C.muted}>• saving…</text>}
+          {saveState === "saved" && (
+            <>
+              <text fg={C.muted}>•</text>
+              <text fg={C.green}>{savedName}</text>
+              <text fg={C.border}>[{sessionKey.current}]</text>
+            </>
+          )}
         </box>
         <text fg={STATUS_COLOR[status]}>{STATUS_LABEL[status]}</text>
       </box>
 
       {/* Scrollable content */}
-      <scrollbox style={{ flexGrow: 1, width: "100%", padding: 1, gap: 1, flexDirection: "column" }}>
+      <scrollbox style={{ height: termHeight - 3, width: "100%", padding: 1, gap: 1, flexDirection: "column" }}>
 
         {state.framing && (
           <FramingCard definition={state.framing.definition} questions={state.framing.questions} />
