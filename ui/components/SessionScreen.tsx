@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from "react"
-import { useKeyboard, useTerminalDimensions } from "@opentui/react"
+import { useKeyboard } from "@opentui/react"
 import path from "path"
 import {
   C, AGENT_COLORS,
@@ -108,8 +108,6 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
   const procRef   = useRef<ReturnType<typeof Bun.spawn> | null>(null)
   const hasSaved  = useRef(false)
   const sessionKey = useRef(sessionMeta?.key ?? generateKey())
-
-  const { height: termHeight } = useTerminalDimensions()
 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     sessionMeta ? "saved" : "idle"
@@ -287,31 +285,33 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
       </box>
 
       {/* Scrollable content */}
-      <scrollbox style={{ height: termHeight - 3, width: "100%", padding: 1, gap: 1, flexDirection: "column" }}>
+      <scrollbox style={{ flexGrow: 1, width: "100%" }}>
+        <box style={{ width: "100%", flexDirection: "column", padding: 1, gap: 1 }}>
 
-        {state.framing && (
-          <FramingCard definition={state.framing.definition} questions={state.framing.questions} />
-        )}
+          {state.framing && (
+            <FramingCard definition={state.framing.definition} questions={state.framing.questions} />
+          )}
 
-        {state.rounds.map((round: RoundData) => (
-          <box key={round.num} style={{ width: "100%" }}>
-            <RoundCard
-              round={round}
-              review={state.reviews.find((r: { decision: string; reason: string; round: number }) => r.round === round.num) ?? null}
-              agentConfigs={config.agents}
-            />
-          </box>
-        ))}
+          {state.rounds.map((round: RoundData) => (
+            <box key={round.num} style={{ width: "100%" }}>
+              <RoundCard
+                round={round}
+                review={state.reviews.find((r: { decision: string; reason: string; round: number }) => r.round === round.num) ?? null}
+                agentConfigs={config.agents}
+              />
+            </box>
+          ))}
 
-        {state.synthesis && <SynthesisCard synthesis={state.synthesis} />}
+          {state.synthesis && <SynthesisCard synthesis={state.synthesis} />}
 
-        {state.error && (
-          <box style={{ borderStyle: "rounded", borderColor: C.red, padding: 1, flexDirection: "column" }}>
-            <text fg={C.red}>⚠ Error</text>
-            <text fg={C.text}>{state.error}</text>
-          </box>
-        )}
+          {state.error && (
+            <box style={{ borderStyle: "rounded", borderColor: C.red, padding: 1, flexDirection: "column" }}>
+              <text fg={C.red}>⚠ Error</text>
+              <text fg={C.text}>{state.error}</text>
+            </box>
+          )}
 
+        </box>
       </scrollbox>
     </box>
   )
