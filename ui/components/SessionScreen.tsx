@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from "react"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import path from "path"
 import {
@@ -89,6 +89,13 @@ const INITIAL: SessionState = {
   reviews: [], synthesis: null, error: null,
 }
 
+// ── Clipboard ─────────────────────────────────────────────────────────────────
+
+function writeClipboard(text: string) {
+  const encoded = Buffer.from(text).toString("base64")
+  process.stdout.write(`\x1b]52;c;${encoded}\x07`)
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -105,14 +112,31 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
     reducer,
     initialState ?? { ...INITIAL, topic: config.topic, discussionRounds: config.discussion_rounds },
   )
-  const procRef   = useRef<ReturnType<typeof Bun.spawn> | null>(null)
-  const hasSaved  = useRef(false)
+  const procRef    = useRef<ReturnType<typeof Bun.spawn> | null>(null)
+  const hasSaved   = useRef(false)
   const sessionKey = useRef(sessionMeta?.key ?? generateKey())
 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
     sessionMeta ? "saved" : "idle"
   )
-  const [savedName, setSavedName] = useState<string>(sessionMeta?.name ?? "")
+  const [savedName, setSavedName]       = useState<string>(sessionMeta?.name ?? "")
+  const [focusedCardId, setFocusedCardId] = useState<string | null>(null)
+  const [copiedCardId, setCopiedCardId]   = useState<string | null>(null)
+
+  // ── Flat ordered list of copyable card IDs ────────────────────────────────────
+
+  const cardIds = useMemo(() => {
+    const ids: string[] = []
+    if (state.framing) ids.push("framing")
+    for (const round of state.rounds) {
+      round.agents.forEach((agent, i) => {
+        if (!agent.thinking) ids.push(`agent-${round.num}-${i}`)
+      })
+      if (state.reviews.some(r => r.round === round.num)) ids.push(`review-${round.num}`)
+    }
+    if (state.synthesis) ids.push("synthesis")
+    return ids
+  }, [state.framing, state.rounds, state.reviews, state.synthesis])
 
   // ── Subprocess (live mode only) ──────────────────────────────────────────────
 
@@ -217,14 +241,70 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
     }
   }
 
-  // ── Keyboard ─────────────────────────────────────────────────────────────────
+  // ── Copy helpers ──────────────────────────────────────────────────────────────
+
+  function getCardContent(cardId: string): string {
+    if (cardId === "framing" && state.framing) {
+      return [state.framing.definition, ...state.framing.questions.map((q, i) => `${i + 1}. ${q}`)].join("\n")
+    }
+    if (cardId.startsWith("agent-")) {
+      const [, roundStr, idxStr] = cardId.split("-")
+      const round = state.rounds.find(r => r.num === parseInt(roundStr))
+      const agent = round?.agents[parseInt(idxStr)]
+      return agent?.content ?? ""
+    }
+    if (cardId.startsWith("review-")) {
+      const roundNum = parseInt(cardId.split("-")[1])
+      const review = state.reviews.find(r => r.round === roundNum)
+      return review?.reason ?? ""
+    }
+    if (cardId === "synthesis" && state.synthesis) {
+      const s = state.synthesis
+      const parts = [`Summary:\n${s.summary}`, `Deliverable:\n${s.deliverable}`]
+      if (s.key_decisions.length) parts.push(`Key decisions:\n${s.key_decisions.map(d => `→ ${d}`).join("\n")}`)
+      if (s.open_questions.length) parts.push(`Open questions:\n${s.open_questions.map(q => `? ${q}`).join("\n")}`)
+      return parts.join("\n\n")
+    }
+    return ""
+  }
+
+  function triggerCopy(cardId: string) {
+    const content = getCardContent(cardId)
+    if (!content) return
+    writeClipboard(content)
+    setCopiedCardId(cardId)
+    setTimeout(() => setCopiedCardId(c => c === cardId ? null : c), 1500)
+  }
+
+  // ── Keyboard ──────────────────────────────────────────────────────────────────
 
   useKeyboard((key) => {
     if (key.name === "b" && (state.status === "done" || isViewer)) onBack()
     if (key.ctrl && key.name === "c") { try { procRef.current?.kill() } catch {}; onBack() }
+
+    if (key.name === "tab" && !key.shift) {
+      setFocusedCardId(curr => {
+        if (!cardIds.length) return null
+        const idx = curr !== null ? cardIds.indexOf(curr) : -1
+        return cardIds[(idx + 1) % cardIds.length]
+      })
+    }
+    if (key.name === "tab" && key.shift) {
+      setFocusedCardId(curr => {
+        if (!cardIds.length) return null
+        const idx = curr !== null ? cardIds.indexOf(curr) : 0
+        return cardIds[(idx - 1 + cardIds.length) % cardIds.length]
+      })
+    }
+    if ((key.name === "y" || key.name === "return") && focusedCardId) {
+      triggerCopy(focusedCardId)
+    }
+    if (key.name === "escape") {
+      setFocusedCardId(null)
+    }
   })
 
-  // ── Status display ────────────────────────────────────────────────────────────
+  // ── Status display ─────────────────────────────────────────────────────────────
 
   const STATUS_COLOR: Record<Status, string> = {
     waiting:      C.muted,
@@ -242,11 +322,13 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
     running:      `round ${state.currentRound} — deliberating`,
     reviewing:    "reviewing...",
     synthesizing: "synthesizing...",
-    done:         `complete • ${state.rounds.length} rounds • b to exit`,
+    done:         `complete • ${state.rounds.length} rounds • b: exit • Tab: copy`,
     error:        "error",
   }
 
-  const status = state.status as Status
+  const status      = state.status as Status
+  const statusLabel = focusedCardId ? "Tab: next  •  y: copy  •  Esc: unfocus" : STATUS_LABEL[status]
+  const statusColor = focusedCardId ? C.cyan : STATUS_COLOR[status]
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -280,7 +362,7 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
             </>
           )}
         </box>
-        <text fg={STATUS_COLOR[status]}>{STATUS_LABEL[status]}</text>
+        <text fg={statusColor}>{statusLabel}</text>
       </box>
 
       {/* Scrollable content */}
@@ -288,7 +370,12 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
         <box style={{ width: "100%", flexDirection: "column", padding: 1, gap: 1 }}>
 
           {state.framing && (
-            <FramingCard definition={state.framing.definition} questions={state.framing.questions} />
+            <FramingCard
+              definition={state.framing.definition}
+              questions={state.framing.questions}
+              isFocused={focusedCardId === "framing"}
+              isCopied={copiedCardId === "framing"}
+            />
           )}
 
           {state.rounds.map((round: RoundData) => (
@@ -297,11 +384,19 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
                 round={round}
                 review={state.reviews.find((r: { decision: string; reason: string; round: number }) => r.round === round.num) ?? null}
                 agentConfigs={config.agents}
+                focusedCardId={focusedCardId}
+                copiedCardId={copiedCardId}
               />
             </box>
           ))}
 
-          {state.synthesis && <SynthesisCard synthesis={state.synthesis} />}
+          {state.synthesis && (
+            <SynthesisCard
+              synthesis={state.synthesis}
+              isFocused={focusedCardId === "synthesis"}
+              isCopied={copiedCardId === "synthesis"}
+            />
+          )}
 
           {state.error && (
             <box style={{ borderStyle: "rounded", borderColor: C.red, padding: 1, flexDirection: "column" }}>
@@ -316,12 +411,29 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
   )
 }
 
+// ── Copy button ───────────────────────────────────────────────────────────────
+
+function CopyButton({ isFocused, isCopied }: { isFocused: boolean; isCopied: boolean }) {
+  return (
+    <box style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+      <text fg={isCopied ? C.green : isFocused ? C.text : C.border}>
+        {isCopied ? "[ ✓ copied ]" : "[ copy ]"}
+      </text>
+    </box>
+  )
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function FramingCard({ definition, questions }: { definition: string; questions: string[] }) {
+function FramingCard({ definition, questions, isFocused, isCopied }: {
+  definition: string
+  questions: string[]
+  isFocused: boolean
+  isCopied: boolean
+}) {
   return (
     <box
-      style={{ flexDirection: "column", borderStyle: "rounded", borderColor: C.yellow, padding: 1, gap: 1, width: "100%" }}
+      style={{ flexDirection: "column", borderStyle: "rounded", borderColor: isFocused ? C.cyan : C.yellow, padding: 1, gap: 1, width: "100%" }}
       title=" ◈ framing "
     >
       <text fg={C.text}>{definition}</text>
@@ -334,6 +446,7 @@ function FramingCard({ definition, questions }: { definition: string; questions:
           </box>
         ))}
       </box>
+      <CopyButton isFocused={isFocused} isCopied={isCopied} />
     </box>
   )
 }
@@ -342,10 +455,14 @@ function RoundCard({
   round,
   review,
   agentConfigs,
+  focusedCardId,
+  copiedCardId,
 }: {
   round: RoundData
   review: { decision: string; reason: string; round: number } | null
   agentConfigs: SessionConfig["agents"]
+  focusedCardId: string | null
+  copiedCardId: string | null
 }) {
   return (
     <box style={{ flexDirection: "column", gap: 1, width: "100%" }}>
@@ -357,19 +474,35 @@ function RoundCard({
 
       {round.agents.map((agent: AgentEntry, i: number) => (
         <box key={agent.name} style={{ width: "100%" }}>
-          <AgentCard agent={agent} color={AGENT_COLORS[i % AGENT_COLORS.length]} />
+          <AgentCard
+            agent={agent}
+            color={AGENT_COLORS[i % AGENT_COLORS.length]}
+            isFocused={focusedCardId === `agent-${round.num}-${i}`}
+            isCopied={copiedCardId === `agent-${round.num}-${i}`}
+          />
         </box>
       ))}
 
-      {review && <ReviewCard review={review} />}
+      {review && (
+        <ReviewCard
+          review={review}
+          isFocused={focusedCardId === `review-${round.num}`}
+          isCopied={copiedCardId === `review-${round.num}`}
+        />
+      )}
     </box>
   )
 }
 
-function AgentCard({ agent, color }: { agent: AgentEntry; color: string }) {
+function AgentCard({ agent, color, isFocused, isCopied }: {
+  agent: AgentEntry
+  color: string
+  isFocused: boolean
+  isCopied: boolean
+}) {
   return (
     <box
-      style={{ flexDirection: "column", borderStyle: "single", borderColor: color, padding: 1, width: "100%" }}
+      style={{ flexDirection: "column", borderStyle: "single", borderColor: isFocused ? C.cyan : color, padding: 1, width: "100%" }}
       title={` ${agent.name} — ${agent.role} `}
     >
       {agent.thinking ? (
@@ -378,13 +511,20 @@ function AgentCard({ agent, color }: { agent: AgentEntry; color: string }) {
           <text fg={C.muted}>Thinking...</text>
         </box>
       ) : (
-        <text fg={C.text}>{agent.content}</text>
+        <>
+          <text fg={C.text}>{agent.content}</text>
+          <CopyButton isFocused={isFocused} isCopied={isCopied} />
+        </>
       )}
     </box>
   )
 }
 
-function ReviewCard({ review }: { review: { decision: string; reason: string; round: number } }) {
+function ReviewCard({ review, isFocused, isCopied }: {
+  review: { decision: string; reason: string; round: number }
+  isFocused: boolean
+  isCopied: boolean
+}) {
   const isContinue = review.decision === "continue"
   const color      = isContinue ? C.orange : C.green
   const icon       = isContinue ? "↻" : "✓"
@@ -392,20 +532,27 @@ function ReviewCard({ review }: { review: { decision: string; reason: string; ro
 
   return (
     <box
-      style={{ flexDirection: "row", gap: 2, borderStyle: "single", borderColor: color, padding: 1, alignItems: "center" }}
+      style={{ flexDirection: "column", borderStyle: "single", borderColor: isFocused ? C.cyan : color, padding: 1 }}
       title=" ⊹ review "
     >
-      <text fg={color}>{icon} {label}</text>
-      <text fg={C.muted}>—</text>
-      <text fg={C.muted}>{review.reason}</text>
+      <box style={{ flexDirection: "row", gap: 2, alignItems: "center" }}>
+        <text fg={color}>{icon} {label}</text>
+        <text fg={C.muted}>—</text>
+        <text fg={C.muted}>{review.reason}</text>
+      </box>
+      <CopyButton isFocused={isFocused} isCopied={isCopied} />
     </box>
   )
 }
 
-function SynthesisCard({ synthesis }: { synthesis: SynthesisOutput }) {
+function SynthesisCard({ synthesis, isFocused, isCopied }: {
+  synthesis: SynthesisOutput
+  isFocused: boolean
+  isCopied: boolean
+}) {
   return (
     <box
-      style={{ flexDirection: "column", borderStyle: "rounded", borderColor: C.purple, padding: 1, gap: 1, width: "100%" }}
+      style={{ flexDirection: "column", borderStyle: "rounded", borderColor: isFocused ? C.cyan : C.purple, padding: 1, gap: 1, width: "100%" }}
       title={` ◈ synthesis — ${synthesis.output_type} `}
     >
       <box style={{ flexDirection: "column", gap: 0 }}>
@@ -422,6 +569,7 @@ function SynthesisCard({ synthesis }: { synthesis: SynthesisOutput }) {
       {synthesis.open_questions.length > 0 && (
         <BulletList label="open questions" items={synthesis.open_questions} color={C.muted} bullet="?" />
       )}
+      <CopyButton isFocused={isFocused} isCopied={isCopied} />
     </box>
   )
 }
