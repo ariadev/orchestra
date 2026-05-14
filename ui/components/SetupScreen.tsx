@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { TextareaRenderable } from "@opentui/core"
 import { C, MODELS, OUTPUT_MODES, MODE_LABELS, MODE_SUBTITLES, type AgentConfig, type Model, type OutputMode, type SessionConfig } from "../types"
-import { generateAgentPersona } from "../naming"
+import { generateAgentPersona, suggestAgents, type SuggestedAgent } from "../naming"
 
 const AGENT_COLORS = ["#58a6ff", "#3fb950", "#bc8cff", "#d29922", "#56d4dd", "#e3b341"]
 const GENERATING_PERSONA_TEXT = "AI generating persona for you..."
@@ -15,8 +15,11 @@ const ROUND_SUBTITLES: Record<number, string> = {
   5: "Maximum depth — most thorough, expect longer runtime and higher cost",
 }
 
+type SuggestionState = "idle" | "loading" | "ready" | "dismissed"
+
 type FocusField =
   | "topic" | "members" | "addBtn"
+  | "suggestAccept" | "suggestDecline"
   | "name" | "role" | "persona" | "model" | "add" | "cancel"
   | "outputMode" | "discussionRounds" | "start"
 
@@ -41,10 +44,13 @@ export function SetupScreen({ onStart }: Props) {
   const [formKey, setFormKey] = useState(0)
   const [personaEditorKey, setPersonaEditorKey] = useState(0)
   const [isGeneratingPersona, setIsGeneratingPersona] = useState(false)
+  const [suggestionState, setSuggestionState] = useState<SuggestionState>("idle")
+  const [suggestedAgents, setSuggestedAgents] = useState<SuggestedAgent[]>([])
 
   const topicRef = useRef<TextareaRenderable>(null)
   const personaRef = useRef<TextareaRenderable>(null)
   const personaRequestIdRef = useRef(0)
+  const suggestionRequestIdRef = useRef(0)
 
   const model = MODELS[modelIdx]
   const outputMode = OUTPUT_MODES[outputModeIdx]
@@ -56,11 +62,12 @@ export function SetupScreen({ onStart }: Props) {
   const fieldOrder = useMemo((): FocusField[] => {
     const order: FocusField[] = ["topic"]
     if (agents.length > 0 && !formOpen) order.push("members")
+    if (suggestionState === "ready") order.push("suggestAccept", "suggestDecline")
     order.push("addBtn")
     if (formOpen) order.push("name", "role", "persona", "model", "add", "cancel")
     order.push("outputMode", "discussionRounds", "start")
     return order
-  }, [agents.length, formOpen])
+  }, [agents.length, formOpen, suggestionState])
 
   // Snap focus to a valid field when fieldOrder changes
   useEffect(() => {
@@ -89,6 +96,36 @@ export function SetupScreen({ onStart }: Props) {
   const cancelPendingPersonaGeneration = useCallback(() => {
     personaRequestIdRef.current += 1
     setIsGeneratingPersona(false)
+  }, [])
+
+  const triggerAgentSuggestion = useCallback(async (topicText: string) => {
+    const requestId = suggestionRequestIdRef.current + 1
+    suggestionRequestIdRef.current = requestId
+    setSuggestionState("loading")
+    setError("")
+    try {
+      const suggestions = await suggestAgents(topicText)
+      if (suggestionRequestIdRef.current !== requestId) return
+      if (suggestions.length === 0) { setSuggestionState("dismissed"); return }
+      setSuggestedAgents(suggestions)
+      setSuggestionState("ready")
+      setFocus("suggestAccept")
+    } catch (e) {
+      if (suggestionRequestIdRef.current !== requestId) return
+      setSuggestionState("dismissed")
+      setError(e instanceof Error ? e.message : "agent suggestion failed")
+    }
+  }, [])
+
+  const acceptSuggestions = useCallback(() => {
+    setAgents(suggestedAgents.map(a => ({ ...a, model: MODELS[0] })))
+    setSuggestionState("dismissed")
+    setFocus("members")
+  }, [suggestedAgents])
+
+  const declineSuggestions = useCallback(() => {
+    setSuggestionState("dismissed")
+    setFocus("addBtn")
   }, [])
 
   const openForm = useCallback((editIdx = -1) => {
@@ -228,6 +265,14 @@ export function SetupScreen({ onStart }: Props) {
 
   useKeyboard((key) => {
     if (key.name === "tab" && !key.shift) {
+      if (focus === "topic") {
+        const currentTopic = (topicRef.current?.plainText ?? topic).trim()
+        if (currentTopic && agents.length === 0 && suggestionState === "idle") {
+          void triggerAgentSuggestion(currentTopic)
+        }
+        nextFocus()
+        return
+      }
       if (focus === "role") {
         setFocus("persona")
         void maybeGeneratePersona()
@@ -238,6 +283,7 @@ export function SetupScreen({ onStart }: Props) {
     }
     if (key.name === "tab" && key.shift) { prevFocus(); return }
 
+    if (key.name === "escape" && suggestionState === "ready") { declineSuggestions(); return }
     if (key.name === "escape" && formOpen) { cancelForm(agents.length); return }
 
     if (focus === "addBtn" && key.name === "return") { openForm(); return }
@@ -267,6 +313,8 @@ export function SetupScreen({ onStart }: Props) {
     }
 
     if (key.name === "return") {
+      if (focus === "suggestAccept") { acceptSuggestions(); return }
+      if (focus === "suggestDecline") { declineSuggestions(); return }
       if (focus === "role") {
         setFocus("persona")
         void maybeGeneratePersona()
@@ -280,6 +328,7 @@ export function SetupScreen({ onStart }: Props) {
   })
 
   const membersBoxFocused = focus === "members" || focus === "addBtn" || formOpen
+    || focus === "suggestAccept" || focus === "suggestDecline"
   const settingsBoxFocused = focus === "outputMode" || focus === "discussionRounds"
 
   return (
@@ -339,6 +388,44 @@ export function SetupScreen({ onStart }: Props) {
         }}
         title=" Members "
       >
+        {/* Agent suggestion panel */}
+        {suggestionState === "loading" && (
+          <box style={{ flexDirection: "row", gap: 1, marginBottom: 1 }}>
+            <text fg={C.purple}>✦</text>
+            <text fg={C.muted}>AI is suggesting agents for your discussion…</text>
+          </box>
+        )}
+        {suggestionState === "ready" && (
+          <box style={{ flexDirection: "column", gap: 1, marginBottom: 1 }}>
+            <text fg={C.purple}>✦ AI suggests these agents for your topic:</text>
+            {suggestedAgents.map((a: SuggestedAgent, i: number) => (
+              <box key={i} style={{ flexDirection: "column" }}>
+                <box style={{ flexDirection: "row", gap: 2, paddingLeft: 2 }}>
+                  <text fg={AGENT_COLORS[i % AGENT_COLORS.length]}>●</text>
+                  <text fg={C.text}>{a.name}</text>
+                  <text fg={C.muted}>—</text>
+                  <text fg={C.muted}>{a.role}</text>
+                </box>
+                <text fg={C.muted} style={{ paddingLeft: 5 }}>
+                  {a.persona.length > 100 ? a.persona.slice(0, 100) + "…" : a.persona}
+                </text>
+              </box>
+            ))}
+            <box style={{ flexDirection: "row", gap: 3, marginTop: 1, paddingLeft: 2 }}>
+              <text fg={focus === "suggestAccept" ? C.green : C.muted}>
+                {focus === "suggestAccept" ? "▶ ✓ Use these agents" : "  ✓ Use these agents"}
+              </text>
+              <text fg={focus === "suggestDecline" ? C.red : C.muted}>
+                {focus === "suggestDecline" ? "▶ ✕ Create manually" : "  ✕ Create manually"}
+              </text>
+            </box>
+            <text fg={C.muted} style={{ paddingLeft: 2 }}>Tab: navigate  •  Enter: select  •  Esc: dismiss</text>
+          </box>
+        )}
+        {(suggestionState === "loading" || suggestionState === "ready") && agents.length === 0 && (
+          <text fg={C.border}>{"─".repeat(120)}</text>
+        )}
+
         {/* Agent rows */}
         {agents.map((a: AgentConfig, i: number) => {
           const isSel = focus === "members" && i === selectedMember
