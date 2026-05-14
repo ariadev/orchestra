@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Orchestra — single-command launcher
-# Usage: ./run.sh [--setup]
+# Usage: ./orchestra [--setup]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -63,7 +63,7 @@ if [[ "${1:-}" == "--setup" ]]; then
   cd "$UI_DIR" && "$BUN" install
   ok "UI dependencies installed"
 
-  echo -e "\n${G}Setup complete.${N} Run ${B}./run.sh${N} to start Orchestra.\n"
+  echo -e "\n${G}Setup complete.${N} Run ${B}./orchestra${N} to start Orchestra.\n"
   exit 0
 fi
 
@@ -84,13 +84,13 @@ fi
 
 # Python venv
 if [ ! -f "$VENV_PYTHON" ]; then
-  err "Python venv not found. Run:  ./run.sh --setup"
+  err "Python venv not found. Run:  ./orchestra --setup"
   FAIL=1
 fi
 
 # UI node_modules
 if [ ! -d "$UI_DIR/node_modules" ]; then
-  err "UI dependencies not installed. Run:  ./run.sh --setup"
+  err "UI dependencies not installed. Run:  ./orchestra --setup"
   FAIL=1
 fi
 

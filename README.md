@@ -12,23 +12,23 @@ Agents collaborate in a structured "meeting room": a facilitator frames the topi
 
 ```bash
 # 1. First-time setup (venv, Python deps, UI deps, .env scaffold)
-./run.sh --setup
+./orchestra --setup
 
 # 2. Add your OpenAI API key
 $EDITOR .env
 
 # 3. Launch
-./run.sh
+./orchestra
 ```
 
 That's it. The TUI opens and you can configure agents interactively.
 
 ---
 
-## `run.sh`
+## `orchestra`
 
 ```
-./run.sh [--setup]
+./orchestra [--setup]
 ```
 
 | Flag | Effect |
@@ -36,7 +36,7 @@ That's it. The TUI opens and you can configure agents interactively.
 | *(none)* | Pre-flight checks then launch the opentui TUI |
 | `--setup` | Create `.env`, create Python venv, install all dependencies |
 
-The script locates `bun` automatically (checks `~/.bun/bin`, `/usr/local/bin`, `$PATH`). You can override with `BUN_PATH=/path/to/bun ./run.sh`.
+The script locates `bun` automatically (checks `~/.bun/bin`, `/usr/local/bin`, `$PATH`). You can override with `BUN_PATH=/path/to/bun ./orchestra`.
 
 **Pre-flight checks** (run every launch):
 - `OPENAI_API_KEY` is set (from `.env` or environment)
@@ -51,7 +51,7 @@ Any failure prints a clear error and exits before touching the terminal.
 
 ```
 orchestra/
-├── run.sh               ← single entry point (start here)
+├── orchestra            ← single entry point (start here)
 ├── .env.example         ← copy to .env and add OPENAI_API_KEY
 │
 ├── main.py              ← Python backend entry point (stdin → NDJSON stdout)
