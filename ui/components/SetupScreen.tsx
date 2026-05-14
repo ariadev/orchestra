@@ -46,6 +46,8 @@ export function SetupScreen({ onStart }: Props) {
   const [isGeneratingPersona, setIsGeneratingPersona] = useState(false)
   const [suggestionState, setSuggestionState] = useState<SuggestionState>("idle")
   const [suggestedAgents, setSuggestedAgents] = useState<SuggestedAgent[]>([])
+  const [topicHeight, setTopicHeight] = useState(1)
+  const [personaHeight, setPersonaHeight] = useState(1)
 
   const topicRef = useRef<TextareaRenderable>(null)
   const personaRef = useRef<TextareaRenderable>(null)
@@ -54,10 +56,6 @@ export function SetupScreen({ onStart }: Props) {
 
   const model = MODELS[modelIdx]
   const outputMode = OUTPUT_MODES[outputModeIdx]
-
-  // Auto-grow: height tracks newlines in the text
-  const topicHeight = Math.max(1, topic.split("\n").length)
-  const personaHeight = Math.max(1, persona.split("\n").length)
 
   const fieldOrder = useMemo((): FocusField[] => {
     const order: FocusField[] = ["topic"]
@@ -89,7 +87,9 @@ export function SetupScreen({ onStart }: Props) {
   }, [fieldOrder])
 
   const setPersonaValue = useCallback((value: string) => {
-    setPersona(value.replace(/\r\n?/g, "\n"))
+    const normalized = value.replace(/\r\n?/g, "\n")
+    setPersona(normalized)
+    setPersonaHeight(Math.max(1, normalized.split("\n").length))
     setPersonaEditorKey(k => k + 1)
   }, [])
 
@@ -365,14 +365,10 @@ export function SetupScreen({ onStart }: Props) {
         <textarea
           ref={topicRef}
           placeholder="Describe the topic you want to create this room for..."
-          onContentChange={() => setTopic(topicRef.current?.plainText ?? "")}
           focused={focus === "topic"}
           width="100%"
-          height={topicHeight}
           textColor={C.text}
           cursorColor={C.blue}
-          backgroundColor={C.panel}
-          focusedBackgroundColor={C.panel}
           wrapMode="word"
         />
       </box>
@@ -512,18 +508,12 @@ export function SetupScreen({ onStart }: Props) {
                   ref={personaRef}
                   initialValue={persona}
                   placeholder="Perspective, expertise, approach…"
-                  onContentChange={() => {
-                    if (!isGeneratingPersona) {
-                      setPersona((personaRef.current?.plainText ?? "").replace(/\r\n?/g, "\n"))
-                    }
-                  }}
                   focused={focus === "persona" && !isGeneratingPersona}
                   textColor={C.text}
                   cursorColor={C.blue}
                   backgroundColor={C.panel}
                   focusedBackgroundColor={C.panel}
                   width="100%"
-                  height={personaHeight}
                   wrapMode="word"
                 />
               </box>
