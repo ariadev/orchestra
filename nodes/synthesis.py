@@ -155,6 +155,12 @@ _HUMAN_TMPL = """\
 ## Key questions the discussion aimed to answer
 {questions}
 
+## Settled decisions from deliberation
+{decision_log_block}
+
+## Unresolved items entering synthesis
+{open_items_block}
+
 ## Full discussion transcript ({total_rounds} round(s), {num_agents} agent(s))
 {transcript}
 
@@ -170,6 +176,15 @@ def synthesis_node(state: DiscussionState) -> dict:
     questions_block = "\n".join(f"{i+1}. {q}" for i, q in enumerate(framing["questions"]))
     transcript = _build_transcript(state["responses"])
 
+    decision_log_block = (
+        "\n".join(f"- {d}" for d in state.get("decision_log", []))
+        or "(No decisions were explicitly settled.)"
+    )
+    open_items_block = (
+        "\n".join(f"- {item}" for item in state.get("open_items", []))
+        or "(No unresolved items.)"
+    )
+
     llm = get_synthesis_llm()
     messages = [
         SystemMessage(content=system_prompt),
@@ -178,6 +193,8 @@ def synthesis_node(state: DiscussionState) -> dict:
                 output_type=output_type,
                 definition=framing["definition"],
                 questions=questions_block,
+                decision_log_block=decision_log_block,
+                open_items_block=open_items_block,
                 transcript=transcript,
                 total_rounds=state["current_round"],
                 num_agents=len(state["agents_config"]),

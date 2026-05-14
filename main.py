@@ -98,6 +98,9 @@ def main() -> None:
         "current_round": 0,
         "discussion_rounds": discussion_rounds,
         "synthesis": None,
+        "round_summaries": [],
+        "decision_log": [],
+        "open_items": [],
     }
 
     try:

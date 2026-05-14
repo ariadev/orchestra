@@ -16,6 +16,14 @@ class AgentResponse(TypedDict):
     round: int
 
 
+class RoundSummary(TypedDict):
+    round: int
+    summary: str           # 3-4 sentence digest of what happened
+    decisions_added: List[str]
+    items_resolved: List[str]
+    items_added: List[str]
+
+
 class FacilitatorOutput(TypedDict):
     definition: str
     questions: List[str]
@@ -39,3 +47,7 @@ class DiscussionState(TypedDict):
     current_round: int
     discussion_rounds: int
     synthesis: Optional[SynthesisOutput]
+    # Inter-round memory — replaces raw history forwarding
+    round_summaries: Annotated[List[RoundSummary], operator.add]
+    decision_log: Annotated[List[str], operator.add]  # append-only settled conclusions
+    open_items: List[str]                             # maintained: resolved items drop off

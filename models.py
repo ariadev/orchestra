@@ -13,6 +13,7 @@ AVAILABLE_MODELS = {
 FACILITATOR_MODEL = "gpt-5.4"
 REVIEWER_MODEL    = "gpt-5.4"
 SYNTHESIS_MODEL   = "gpt-5.4"
+EXTRACTOR_MODEL   = "gpt-5.4"
 
 
 def get_llm(model_id: str, temperature: float = 0.7) -> ChatOpenAI:
@@ -30,3 +31,7 @@ def get_reviewer_llm() -> ChatOpenAI:
 
 def get_synthesis_llm() -> ChatOpenAI:
     return get_llm(SYNTHESIS_MODEL, temperature=0.3)
+
+
+def get_extractor_llm() -> ChatOpenAI:
+    return get_llm(EXTRACTOR_MODEL, temperature=0.2)

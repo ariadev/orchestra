@@ -14,6 +14,7 @@ _UI = {
     "agent_thinking":      "⠿ thinking",
     "agent_response":      "  response",
     "round_end":           "■ round complete",
+    "round_extraction":    "⊛ extracting",
     "review":              "⊹ review",
     "synthesis":           "◈ synthesis",
     "session_end":         "◆ session end",
@@ -84,6 +85,31 @@ def round_end(round_num: int) -> None:
         "type": "round_end",
         "round": round_num,
         "ui": {"label": f"Final Round {round_num}"},
+    })
+
+
+def round_extraction(
+    round_num: int,
+    summary: str,
+    decisions_added: list,
+    items_resolved: list,
+    items_added: list,
+    open_items: list,
+) -> None:
+    _emit({
+        "type": "round_extraction",
+        "round": round_num,
+        "summary": summary,
+        "decisions_added": decisions_added,
+        "items_resolved": items_resolved,
+        "items_added": items_added,
+        "open_items": open_items,
+        "ui": {
+            "label": f"{_UI['round_extraction']} round {round_num}",
+            "summary_label": "Round Summary",
+            "decisions_label": "Decisions Reached",
+            "open_items_label": "Active Tensions & Questions",
+        },
     })
 
 
