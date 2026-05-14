@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
 import type { TextareaRenderable } from "@opentui/core"
 import { C, MODELS, OUTPUT_MODES, MODE_LABELS, MODE_SUBTITLES, type AgentConfig, type Model, type OutputMode, type SessionConfig } from "../types"
+import { generateAgentPersona } from "../naming"
 
 const AGENT_COLORS = ["#58a6ff", "#3fb950", "#bc8cff", "#d29922", "#56d4dd", "#e3b341"]
+const GENERATING_PERSONA_TEXT = "AI generating persona for you..."
 
 const ROUND_SUBTITLES: Record<number, string> = {
   1: "Single pass — fast, lightweight, best for simple or well-defined topics",
@@ -37,9 +39,12 @@ export function SetupScreen({ onStart }: Props) {
   const [editingIdx, setEditingIdx] = useState(-1)
   const [formOpen, setFormOpen] = useState(false)
   const [formKey, setFormKey] = useState(0)
+  const [personaEditorKey, setPersonaEditorKey] = useState(0)
+  const [isGeneratingPersona, setIsGeneratingPersona] = useState(false)
 
   const topicRef = useRef<TextareaRenderable>(null)
   const personaRef = useRef<TextareaRenderable>(null)
+  const personaRequestIdRef = useRef(0)
 
   const model = MODELS[modelIdx]
   const outputMode = OUTPUT_MODES[outputModeIdx]
@@ -76,30 +81,73 @@ export function SetupScreen({ onStart }: Props) {
     })
   }, [fieldOrder])
 
+  const setPersonaValue = useCallback((value: string) => {
+    setPersona(value.replace(/\r\n?/g, "\n"))
+    setPersonaEditorKey(k => k + 1)
+  }, [])
+
+  const cancelPendingPersonaGeneration = useCallback(() => {
+    personaRequestIdRef.current += 1
+    setIsGeneratingPersona(false)
+  }, [])
+
   const openForm = useCallback((editIdx = -1) => {
+    cancelPendingPersonaGeneration()
     setEditingIdx(editIdx)
     setFormOpen(true)
     setFormKey(k => k + 1)
     setFocus("name")
-  }, [])
+  }, [cancelPendingPersonaGeneration])
 
   const cancelForm = useCallback((agentCount: number) => {
+    cancelPendingPersonaGeneration()
     setName("")
     setRole("")
-    setPersona("")
+    setPersonaValue("")
     setModelIdx(0)
     setEditingIdx(-1)
     setFormOpen(false)
-    if (personaRef.current) personaRef.current.setText("")
     setFocus(agentCount > 0 ? "members" : "addBtn")
-  }, [])
+  }, [cancelPendingPersonaGeneration, setPersonaValue])
 
   useEffect(() => {
     if (agents.length === 0 && focus === "members") setFocus("addBtn")
     else if (agents.length > 0) setSelectedMember(i => Math.min(i, agents.length - 1))
   }, [agents.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const maybeGeneratePersona = useCallback(async () => {
+    if (!formOpen || editingIdx >= 0 || isGeneratingPersona) return
+
+    const currentTopic = (topicRef.current?.plainText ?? topic).trim()
+    const currentRole = role.trim()
+    const currentPersona = (personaRef.current?.plainText ?? persona).trim()
+
+    if (!currentTopic || !currentRole || currentPersona) return
+
+    const requestId = personaRequestIdRef.current + 1
+    personaRequestIdRef.current = requestId
+    setIsGeneratingPersona(true)
+    setError("")
+    setPersonaValue(GENERATING_PERSONA_TEXT)
+
+    try {
+      const generatedPersona = await generateAgentPersona(currentTopic, currentRole)
+      if (personaRequestIdRef.current !== requestId) return
+      setPersonaValue(generatedPersona)
+    } finally {
+      if (personaRequestIdRef.current === requestId) {
+        setIsGeneratingPersona(false)
+      }
+    }
+  }, [editingIdx, formOpen, isGeneratingPersona, persona, role, setPersonaValue, topic])
+
   const addOrUpdateAgent = useCallback(() => {
+    if (isGeneratingPersona) {
+      setError("wait for persona generation to finish")
+      setFocus("persona")
+      return
+    }
+
     const currentName = name.trim()
     const currentRole = role.trim()
     const currentPersona = (personaRef.current?.plainText ?? persona).trim()
@@ -120,28 +168,28 @@ export function SetupScreen({ onStart }: Props) {
       setAgents(prev => [...prev, agentData])
     }
 
+    cancelPendingPersonaGeneration()
     setName("")
     setRole("")
-    setPersona("")
+    setPersonaValue("")
     setModelIdx(0)
     setEditingIdx(-1)
     setFormOpen(false)
     setError("")
     setSelectedMember(nextSelected)
-    if (personaRef.current) personaRef.current.setText("")
     setFocus("members")
-  }, [name, role, persona, model, editingIdx, agents.length])
+  }, [name, role, persona, model, editingIdx, agents.length, isGeneratingPersona, cancelPendingPersonaGeneration, setPersonaValue])
 
   const startEditing = useCallback((idx: number) => {
+    cancelPendingPersonaGeneration()
     const a = agents[idx]
     setName(a.name)
     setRole(a.role)
-    setPersona(a.persona)
+    setPersonaValue(a.persona)
     setModelIdx(MODELS.indexOf(a.model))
     setEditingIdx(idx)
-    if (personaRef.current) personaRef.current.setText(a.persona)
     openForm(idx)
-  }, [agents, openForm])
+  }, [agents, cancelPendingPersonaGeneration, openForm, setPersonaValue])
 
   const removeAgentAt = useCallback((idx: number, agentCount: number) => {
     setAgents(prev => prev.filter((_, i) => i !== idx))
@@ -179,7 +227,15 @@ export function SetupScreen({ onStart }: Props) {
   const isTextareaFocus = focus === "topic" || focus === "persona"
 
   useKeyboard((key) => {
-    if (key.name === "tab" && !key.shift) { nextFocus(); return }
+    if (key.name === "tab" && !key.shift) {
+      if (focus === "role") {
+        setFocus("persona")
+        void maybeGeneratePersona()
+        return
+      }
+      nextFocus()
+      return
+    }
     if (key.name === "tab" && key.shift) { prevFocus(); return }
 
     if (key.name === "escape" && formOpen) { cancelForm(agents.length); return }
@@ -211,6 +267,11 @@ export function SetupScreen({ onStart }: Props) {
     }
 
     if (key.name === "return") {
+      if (focus === "role") {
+        setFocus("persona")
+        void maybeGeneratePersona()
+        return
+      }
       if (focus === "add") { addOrUpdateAgent(); return }
       if (focus === "cancel") { cancelForm(agents.length); return }
       if (focus === "start") { startSession(); return }
@@ -360,12 +421,16 @@ export function SetupScreen({ onStart }: Props) {
               <text fg={focus === "persona" ? C.blue : C.muted}>persona</text>
               <box style={{ flexGrow: 1 }}>
                 <textarea
-                  key={`persona-${formKey}`}
+                  key={`persona-${formKey}-${personaEditorKey}`}
                   ref={personaRef}
                   initialValue={persona}
                   placeholder="Perspective, expertise, approach…"
-                  onContentChange={() => setPersona(personaRef.current?.plainText ?? "")}
-                  focused={focus === "persona"}
+                  onContentChange={() => {
+                    if (!isGeneratingPersona) {
+                      setPersona((personaRef.current?.plainText ?? "").replace(/\r\n?/g, "\n"))
+                    }
+                  }}
+                  focused={focus === "persona" && !isGeneratingPersona}
                   textColor={C.text}
                   cursorColor={C.blue}
                   backgroundColor={C.panel}

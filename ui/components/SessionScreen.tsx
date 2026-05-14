@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { useKeyboard } from "@opentui/react"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import path from "path"
 import {
   C, AGENT_COLORS,
@@ -122,6 +123,13 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
   const [savedName, setSavedName]       = useState<string>(sessionMeta?.name ?? "")
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null)
   const [copiedCardId, setCopiedCardId]   = useState<string | null>(null)
+  const scrollboxRef = useRef<ScrollBoxRenderable>(null)
+
+  // ── Scroll focused card into view ────────────────────────────────────────────
+
+  useEffect(() => {
+    if (focusedCardId) scrollboxRef.current?.scrollChildIntoView(focusedCardId)
+  }, [focusedCardId])
 
   // ── Flat ordered list of copyable card IDs ────────────────────────────────────
 
@@ -366,7 +374,7 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
       </box>
 
       {/* Scrollable content */}
-      <scrollbox style={{ flexGrow: 1, width: "100%" }}>
+      <scrollbox ref={scrollboxRef} style={{ flexGrow: 1, width: "100%" }}>
         <box style={{ width: "100%", flexDirection: "column", padding: 1, gap: 1 }}>
 
           {state.framing && (
@@ -433,6 +441,7 @@ function FramingCard({ definition, questions, isFocused, isCopied }: {
 }) {
   return (
     <box
+      id="framing"
       style={{ flexDirection: "column", borderStyle: "rounded", borderColor: isFocused ? C.cyan : C.yellow, padding: 1, gap: 1, width: "100%" }}
       title=" ◈ framing "
     >
@@ -475,6 +484,7 @@ function RoundCard({
       {round.agents.map((agent: AgentEntry, i: number) => (
         <box key={agent.name} style={{ width: "100%" }}>
           <AgentCard
+            id={`agent-${round.num}-${i}`}
             agent={agent}
             color={AGENT_COLORS[i % AGENT_COLORS.length]}
             isFocused={focusedCardId === `agent-${round.num}-${i}`}
@@ -485,6 +495,7 @@ function RoundCard({
 
       {review && (
         <ReviewCard
+          id={`review-${round.num}`}
           review={review}
           isFocused={focusedCardId === `review-${round.num}`}
           isCopied={copiedCardId === `review-${round.num}`}
@@ -494,7 +505,8 @@ function RoundCard({
   )
 }
 
-function AgentCard({ agent, color, isFocused, isCopied }: {
+function AgentCard({ id, agent, color, isFocused, isCopied }: {
+  id: string
   agent: AgentEntry
   color: string
   isFocused: boolean
@@ -502,6 +514,7 @@ function AgentCard({ agent, color, isFocused, isCopied }: {
 }) {
   return (
     <box
+      id={id}
       style={{ flexDirection: "column", borderStyle: "single", borderColor: isFocused ? C.cyan : color, padding: 1, width: "100%" }}
       title={` ${agent.name} — ${agent.role} `}
     >
@@ -520,7 +533,8 @@ function AgentCard({ agent, color, isFocused, isCopied }: {
   )
 }
 
-function ReviewCard({ review, isFocused, isCopied }: {
+function ReviewCard({ id, review, isFocused, isCopied }: {
+  id: string
   review: { decision: string; reason: string; round: number }
   isFocused: boolean
   isCopied: boolean
@@ -532,6 +546,7 @@ function ReviewCard({ review, isFocused, isCopied }: {
 
   return (
     <box
+      id={id}
       style={{ flexDirection: "column", borderStyle: "single", borderColor: isFocused ? C.cyan : color, padding: 1 }}
       title=" ⊹ review "
     >
@@ -552,6 +567,7 @@ function SynthesisCard({ synthesis, isFocused, isCopied }: {
 }) {
   return (
     <box
+      id="synthesis"
       style={{ flexDirection: "column", borderStyle: "rounded", borderColor: isFocused ? C.cyan : C.purple, padding: 1, gap: 1, width: "100%" }}
       title={` ◈ synthesis — ${synthesis.output_type} `}
     >
