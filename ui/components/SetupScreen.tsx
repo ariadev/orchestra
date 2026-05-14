@@ -396,19 +396,19 @@ export function SetupScreen({ onStart }: Props) {
           </box>
         )}
         {suggestionState === "ready" && (
-          <box style={{ flexDirection: "column", gap: 1, marginBottom: 1 }}>
+          <box style={{ flexDirection: "column", gap: 1, marginBottom: 1, width: "100%" }}>
             <text fg={C.purple}>✦ AI suggests these agents for your topic:</text>
             {suggestedAgents.map((a: SuggestedAgent, i: number) => (
-              <box key={i} style={{ flexDirection: "column" }}>
-                <box style={{ flexDirection: "row", gap: 2, paddingLeft: 2 }}>
+              <box key={i} style={{ flexDirection: "column", width: "100%" }}>
+                <box style={{ flexDirection: "row", gap: 2, paddingLeft: 2, width: "100%" }}>
                   <text fg={AGENT_COLORS[i % AGENT_COLORS.length]}>●</text>
                   <text fg={C.text}>{a.name}</text>
                   <text fg={C.muted}>—</text>
                   <text fg={C.muted}>{a.role}</text>
                 </box>
-                <text fg={C.muted} style={{ paddingLeft: 5 }}>
-                  {a.persona.length > 100 ? a.persona.slice(0, 100) + "…" : a.persona}
-                </text>
+                <box style={{ width: "100%", paddingLeft: 5 }}>
+                  <text fg={C.muted} wrapMode="word">{a.persona}</text>
+                </box>
               </box>
             ))}
             <box style={{ flexDirection: "row", gap: 3, marginTop: 1, paddingLeft: 2 }}>
