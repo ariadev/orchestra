@@ -45,8 +45,8 @@ export async function suggestAgents(topic: string): Promise<SuggestedAgent[]> {
                 items: {
                   type: "object",
                   properties: {
-                    name:    { type: "string" },
-                    role:    { type: "string" },
+                    name: { type: "string" },
+                    role: { type: "string" },
                     persona: { type: "string" },
                   },
                   required: ["name", "role", "persona"],
@@ -101,7 +101,6 @@ export async function generateSessionName(topic: string): Promise<string> {
               `no trailing punctuation.\n\nTopic: ${topic.slice(0, 300)}`,
           },
         ],
-        max_tokens: 100,
         temperature: 0.7,
       }),
     })
@@ -153,7 +152,6 @@ export async function generateAgentPersona(topic: string, role: string): Promise
               `Agent role: ${role.slice(0, 200)}`,
           },
         ],
-        max_tokens: 220,
         temperature: 0.7,
       }),
     })
