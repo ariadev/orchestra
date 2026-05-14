@@ -15,12 +15,12 @@ export async function generateSessionName(topic: string): Promise<string> {
           {
             role: "user",
             content:
-              `Create a short memorable title (2–5 words) for a discussion session ` +
+              `Create a short memorable title for a discussion session ` +
               `about the following topic. Reply with only the title — no quotes, ` +
               `no trailing punctuation.\n\nTopic: ${topic.slice(0, 300)}`,
           },
         ],
-        max_tokens: 20,
+        max_tokens: 100,
         temperature: 0.7,
       }),
     })
