@@ -21,10 +21,10 @@ const MAIN_PY  = path.join(ORCH_DIR, "main.py")
 type Status = "waiting" | "framing" | "running" | "reviewing" | "synthesizing" | "done" | "error"
 
 type Action =
-  | { type: "FRAMING";        definition: string; questions: string[] }
+  | { type: "FRAMING";        definition: string; questions: string[]; model?: string; tokens?: number }
   | { type: "ROUND_START";    round: number }
   | { type: "AGENT_THINKING"; name: string; role: string }
-  | { type: "AGENT_RESPONSE"; name: string; content: string }
+  | { type: "AGENT_RESPONSE"; name: string; content: string; model?: string; tokens?: number }
   | { type: "REVIEW";         decision: string; reason: string; round: number }
   | { type: "SYNTHESIS";      output: SynthesisOutput }
   | { type: "DONE";           totalRounds: number }
@@ -35,7 +35,7 @@ type Action =
 function reducer(state: SessionState, action: Action): SessionState {
   switch (action.type) {
     case "FRAMING":
-      return { ...state, status: "framing", framing: { definition: action.definition, questions: action.questions } }
+      return { ...state, status: "framing", framing: { definition: action.definition, questions: action.questions, model: action.model, tokens: action.tokens } }
 
     case "ROUND_START":
       return {
@@ -57,7 +57,7 @@ function reducer(state: SessionState, action: Action): SessionState {
       const rounds = [...state.rounds]
       const last = { ...rounds[rounds.length - 1] }
       last.agents = last.agents.map((a: AgentEntry) =>
-        a.name === action.name ? { ...a, thinking: false, content: action.content } : a
+        a.name === action.name ? { ...a, thinking: false, content: action.content, model: action.model, tokens: action.tokens } : a
       )
       rounds[rounds.length - 1] = last
       return { ...state, rounds }
@@ -217,7 +217,7 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
   function handleEvent(ev: OrchestraEvent) {
     switch (ev.type) {
       case "facilitator_framing":
-        dispatch({ type: "FRAMING", definition: ev.definition, questions: ev.questions })
+        dispatch({ type: "FRAMING", definition: ev.definition, questions: ev.questions, model: ev.model, tokens: ev.tokens })
         break
       case "round_start":
         dispatch({ type: "ROUND_START", round: ev.round })
@@ -226,7 +226,7 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
         dispatch({ type: "AGENT_THINKING", name: ev.agent, role: ev.role })
         break
       case "agent_response":
-        dispatch({ type: "AGENT_RESPONSE", name: ev.agent, content: ev.content })
+        dispatch({ type: "AGENT_RESPONSE", name: ev.agent, content: ev.content, model: ev.model, tokens: ev.tokens })
         break
       case "review":
         dispatch({ type: "REVIEW", decision: ev.decision, reason: ev.reason, round: ev.round })
@@ -238,6 +238,8 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
           summary:        ev.summary,
           key_decisions:  ev.key_decisions,
           open_questions: ev.open_questions,
+          model:          ev.model,
+          tokens:         ev.tokens,
         }})
         break
       case "session_end":
@@ -381,6 +383,8 @@ export function SessionScreen({ config, onBack, initialState, sessionMeta }: Pro
             <FramingCard
               definition={state.framing.definition}
               questions={state.framing.questions}
+              model={state.framing.model}
+              tokens={state.framing.tokens}
               isFocused={focusedCardId === "framing"}
               isCopied={copiedCardId === "framing"}
             />
@@ -433,9 +437,11 @@ function CopyButton({ isFocused, isCopied }: { isFocused: boolean; isCopied: boo
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function FramingCard({ definition, questions, isFocused, isCopied }: {
+function FramingCard({ definition, questions, model, tokens, isFocused, isCopied }: {
   definition: string
   questions: string[]
+  model?: string
+  tokens?: number
   isFocused: boolean
   isCopied: boolean
 }) {
@@ -443,7 +449,7 @@ function FramingCard({ definition, questions, isFocused, isCopied }: {
     <box
       id="framing"
       style={{ flexDirection: "column", borderStyle: "rounded", borderColor: isFocused ? C.cyan : C.yellow, padding: 1, gap: 1, width: "100%" }}
-      title=" ◈ framing "
+      title={` ◈ framing${model ? ` — ${model}` : ""}${tokens ? ` • ${tokens} tokens` : ""} `}
     >
       <text fg={C.text}>{definition}</text>
       <box style={{ flexDirection: "column", gap: 0 }}>
@@ -516,7 +522,7 @@ function AgentCard({ id, agent, color, isFocused, isCopied }: {
     <box
       id={id}
       style={{ flexDirection: "column", borderStyle: "single", borderColor: isFocused ? C.cyan : color, padding: 1, width: "100%" }}
-      title={` ${agent.name} — ${agent.role} `}
+      title={` ${agent.name} — ${agent.role}${agent.model ? ` • ${agent.model}` : ""}${agent.tokens ? ` • ${agent.tokens} tokens` : ""} `}
     >
       {agent.thinking ? (
         <box style={{ flexDirection: "row", gap: 1 }}>
@@ -569,7 +575,7 @@ function SynthesisCard({ synthesis, isFocused, isCopied }: {
     <box
       id="synthesis"
       style={{ flexDirection: "column", borderStyle: "rounded", borderColor: isFocused ? C.cyan : C.purple, padding: 1, gap: 1, width: "100%" }}
-      title={` ◈ synthesis — ${synthesis.output_type} `}
+      title={` ◈ synthesis — ${synthesis.output_type}${synthesis.model ? ` • ${synthesis.model}` : ""}${synthesis.tokens ? ` • ${synthesis.tokens} tokens` : ""} `}
     >
       <box style={{ flexDirection: "column", gap: 0 }}>
         <text fg={C.purple}>summary</text>

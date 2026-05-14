@@ -137,8 +137,11 @@ def run_agents_node(state: DiscussionState) -> dict:
             )
         )
 
-        llm = get_llm(agent_cfg.get("model", "gpt-5.4"), temperature=0.8)
-        content = llm.invoke([system_msg, human_msg]).content
+        model = agent_cfg.get("model", "gpt-5.4")
+        llm = get_llm(model, temperature=0.8)
+        result = llm.invoke([system_msg, human_msg])
+        content = result.content
+        tokens = (getattr(result, "usage_metadata", None) or {}).get("total_tokens", 0)
 
         resp: AgentResponse = {
             "agent_name": agent_cfg["name"],
@@ -147,7 +150,7 @@ def run_agents_node(state: DiscussionState) -> dict:
             "round": current_round,
         }
         new_responses.append(resp)
-        events.agent_response(agent_cfg["name"], agent_cfg["role"], content, current_round)
+        events.agent_response(agent_cfg["name"], agent_cfg["role"], content, current_round, model, tokens)
 
     events.round_end(current_round)
 

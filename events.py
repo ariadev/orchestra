@@ -37,12 +37,14 @@ def session_start(topic: str, agents: list, discussion_rounds: int) -> None:
     })
 
 
-def facilitator_framing(definition: str, questions: list, output_type: str = "general") -> None:
+def facilitator_framing(definition: str, questions: list, output_type: str = "general", model: str = "", tokens: int = 0) -> None:
     _emit({
         "type": "facilitator_framing",
         "definition": definition,
         "questions": questions,
         "output_type": output_type,
+        "model": model,
+        "tokens": tokens,
         "ui": {
             "label": _UI["facilitator_framing"],
             "definition_label": "Definition",
@@ -69,13 +71,15 @@ def agent_thinking(agent_name: str, role: str) -> None:
     })
 
 
-def agent_response(agent_name: str, role: str, content: str, round_num: int) -> None:
+def agent_response(agent_name: str, role: str, content: str, round_num: int, model: str = "", tokens: int = 0) -> None:
     _emit({
         "type": "agent_response",
         "agent": agent_name,
         "role": role,
         "content": content,
         "round": round_num,
+        "model": model,
+        "tokens": tokens,
         "ui": {"label": f"{_UI['agent_response']}: {agent_name}", "role_label": role},
     })
 
@@ -128,10 +132,12 @@ def review(decision: str, reason: str, round_num: int) -> None:
     })
 
 
-def synthesis(output: dict) -> None:
+def synthesis(output: dict, model: str = "", tokens: int = 0) -> None:
     _emit({
         "type": "synthesis",
         **output,
+        "model": model,
+        "tokens": tokens,
         "ui": {
             "label": _UI["synthesis"],
             "output_type_label": "output type",

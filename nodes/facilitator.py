@@ -5,7 +5,7 @@ import json
 from langchain_core.messages import SystemMessage, HumanMessage
 
 import events
-from models import get_facilitator_llm
+from models import FACILITATOR_MODEL, get_facilitator_llm
 from state import DiscussionState
 
 _SYSTEM = """\
@@ -51,14 +51,18 @@ def facilitator_node(state: DiscussionState) -> dict:
         HumanMessage(content=f"Topic submitted by the user:\n\n{state['topic']}"),
     ]
 
-    raw = llm.invoke(messages).content
+    result = llm.invoke(messages)
+    raw = result.content
+    tokens = (getattr(result, "usage_metadata", None) or {}).get("total_tokens", 0)
     framing = _parse(raw, state["topic"])
 
     # User-selected mode takes precedence over auto-detection.
     if state.get("output_type") and state["output_type"] in _VALID_OUTPUT_TYPES:
         framing["output_type"] = state["output_type"]
 
-    events.facilitator_framing(framing["definition"], framing["questions"], framing["output_type"])
+    events.facilitator_framing(
+        framing["definition"], framing["questions"], framing["output_type"], FACILITATOR_MODEL, tokens
+    )
 
     return {"framing": framing}
 

@@ -9,7 +9,7 @@ import json
 from langchain_core.messages import SystemMessage, HumanMessage
 
 import events
-from models import get_synthesis_llm
+from models import SYNTHESIS_MODEL, get_synthesis_llm
 from state import DiscussionState, SynthesisOutput
 
 # ------------------------------------------------------------------
@@ -202,10 +202,12 @@ def synthesis_node(state: DiscussionState) -> dict:
         ),
     ]
 
-    raw = llm.invoke(messages).content
+    result = llm.invoke(messages)
+    raw = result.content
+    tokens = (getattr(result, "usage_metadata", None) or {}).get("total_tokens", 0)
     output: SynthesisOutput = _parse(raw, output_type)
 
-    events.synthesis(output)
+    events.synthesis(output, SYNTHESIS_MODEL, tokens)
     events.session_end(state["current_round"])
 
     return {"synthesis": output}

@@ -59,6 +59,8 @@ export interface FacilitatorFramingEvent extends BaseEvent {
   type: "facilitator_framing"
   definition: string
   questions: string[]
+  model?: string
+  tokens?: number
 }
 
 export interface RoundStartEvent extends BaseEvent {
@@ -78,6 +80,8 @@ export interface AgentResponseEvent extends BaseEvent {
   role: string
   content: string
   round: number
+  model?: string
+  tokens?: number
 }
 
 export interface RoundEndEvent extends BaseEvent {
@@ -98,6 +102,8 @@ export interface SynthesisOutput {
   summary: string
   key_decisions: string[]
   open_questions: string[]
+  model?: string
+  tokens?: number
 }
 
 export interface SynthesisEvent extends BaseEvent, SynthesisOutput {
@@ -133,6 +139,8 @@ export interface AgentEntry {
   role: string
   thinking: boolean
   content: string
+  model?: string
+  tokens?: number
 }
 
 export interface RoundData {
@@ -144,7 +152,7 @@ export interface SessionState {
   topic: string
   discussionRounds: number
   status: "waiting" | "framing" | "running" | "reviewing" | "synthesizing" | "done" | "error"
-  framing: { definition: string; questions: string[] } | null
+  framing: { definition: string; questions: string[]; model?: string; tokens?: number } | null
   rounds: RoundData[]
   currentRound: number
   reviews: Array<{ decision: string; reason: string; round: number }>
