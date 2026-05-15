@@ -13,3 +13,8 @@ export async function getSession(id: string): Promise<SavedSession> {
   if (!res.ok) throw new Error('Session not found')
   return res.json() as Promise<SavedSession>
 }
+
+export async function deleteSession(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/sessions/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete session')
+}

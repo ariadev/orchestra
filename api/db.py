@@ -100,6 +100,13 @@ async def get_session(session_id: str) -> dict | None:
     }
 
 
+async def delete_session(session_id: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        await db.commit()
+        return cursor.rowcount > 0
+
+
 async def _generate_name(topic: str) -> str:
     api_key = os.environ.get("OPENAI_API_KEY", "")
     if not api_key:

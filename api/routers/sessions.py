@@ -29,6 +29,13 @@ async def get_session(session_id: str) -> dict:
     return session
 
 
+@router.delete("/{session_id}", status_code=204)
+async def delete_session(session_id: str) -> None:
+    found = await db.delete_session(session_id)
+    if not found:
+        raise HTTPException(status_code=404, detail="session not found")
+
+
 @router.get("/{session_id}/events")
 async def get_session_events(session_id: str) -> StreamingResponse:
     if not runner.session_exists(session_id):
