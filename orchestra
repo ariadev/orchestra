@@ -96,5 +96,32 @@ fi
 
 [ "$FAIL" -eq 1 ] && exit 1
 
-# ── Launch ─────────────────────────────────────────────────────────────────────
-exec "$BUN" run --cwd "$UI_DIR" index.tsx "$@"
+# ── --list: no API server needed ───────────────────────────────────────────────
+if [[ "${1:-}" == "--list" ]]; then
+  exec "$BUN" run --cwd "$UI_DIR" index.tsx "$@"
+fi
+
+# ── Start API server ───────────────────────────────────────────────────────────
+API_PORT="${ORCHESTRA_API_PORT:-7890}"
+
+cd "$SCRIPT_DIR"
+"$VENV_PYTHON" -m uvicorn api.main:app \
+  --host 127.0.0.1 --port "$API_PORT" \
+  --log-level warning &
+API_PID=$!
+
+cleanup() {
+  kill "$API_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# Wait for the API to become ready (up to 10 s)
+for _ in $(seq 1 20); do
+  curl -sf "http://localhost:${API_PORT}/health" > /dev/null 2>&1 && break
+  sleep 0.5
+done
+
+export ORCHESTRA_API_URL="http://localhost:${API_PORT}"
+
+# ── Launch TUI ─────────────────────────────────────────────────────────────────
+"$BUN" run --cwd "$UI_DIR" index.tsx "$@"

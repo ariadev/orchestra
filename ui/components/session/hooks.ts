@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import path from "path"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import type { OrchestraEvent, SessionConfig, SessionState } from "../../types"
 import { saveSession } from "../../storage"
@@ -7,11 +6,9 @@ import { generateSessionName } from "../../naming"
 import type { Action, SaveState, Status } from "./types"
 import { handleEvent } from "./reducer"
 
-// ── Paths ─────────────────────────────────────────────────────────────────────
+// ── API ───────────────────────────────────────────────────────────────────────
 
-const ORCH_DIR = path.resolve(import.meta.dir, "../../..")
-const PYTHON   = path.join(ORCH_DIR, ".venv", "bin", "python3")
-const MAIN_PY  = path.join(ORCH_DIR, "main.py")
+const API_BASE = process.env.ORCHESTRA_API_URL ?? "http://localhost:7890"
 
 // ── Clipboard ─────────────────────────────────────────────────────────────────
 
@@ -60,35 +57,55 @@ export function collectCardIds(state: SessionState): string[] {
   return ids
 }
 
-// ── Subprocess hook ───────────────────────────────────────────────────────────
+// ── SSE session hook ──────────────────────────────────────────────────────────
 
 export function useSessionProcess(
   config: SessionConfig,
   enabled: boolean,
   dispatch: (action: Action) => void,
 ) {
-  const procRef = useRef<ReturnType<typeof Bun.spawn> | null>(null)
+  const ctrlRef = useRef<{ kill: () => void } | null>(null)
 
   useEffect(() => {
     if (!enabled) return
     let mounted = true
+    const controller = new AbortController()
 
-    const proc = Bun.spawn([PYTHON, MAIN_PY], {
-      stdin:  "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      cwd:    ORCH_DIR,
-    })
-    procRef.current = proc
-
-    proc.stdin.write(new TextEncoder().encode(JSON.stringify(config)))
-    proc.stdin.end()
+    ctrlRef.current = {
+      kill: () => {
+        mounted = false
+        controller.abort()
+      },
+    }
 
     ;(async () => {
-      const decoder = new TextDecoder()
-      let buffer = ""
       try {
-        const reader = proc.stdout.getReader()
+        const res = await fetch(`${API_BASE}/sessions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config),
+          signal: controller.signal,
+        })
+
+        if (!res.ok) {
+          const text = await res.text()
+          throw new Error(`API error ${res.status}: ${text}`)
+        }
+
+        const { session_id } = await res.json() as { session_id: string }
+
+        const eventsRes = await fetch(`${API_BASE}/sessions/${session_id}/events`, {
+          signal: controller.signal,
+        })
+
+        if (!eventsRes.ok || !eventsRes.body) {
+          throw new Error(`Failed to connect to event stream (${eventsRes.status})`)
+        }
+
+        const decoder = new TextDecoder()
+        let buffer = ""
+        const reader = eventsRes.body.getReader()
+
         while (true) {
           const { done, value } = await reader.read()
           if (done || !mounted) break
@@ -96,24 +113,28 @@ export function useSessionProcess(
           const lines = buffer.split("\n")
           buffer = lines.pop() ?? ""
           for (const line of lines) {
-            const t = line.trim()
-            if (!t) continue
-            try { handleEvent(dispatch, JSON.parse(t) as OrchestraEvent) } catch {}
+            if (!line.startsWith("data: ")) continue
+            const text = line.slice(6).trim()
+            if (!text) continue
+            try { handleEvent(dispatch, JSON.parse(text) as OrchestraEvent) } catch {}
           }
         }
+
         if (mounted) dispatch({ type: "DONE", totalRounds: 0 })
       } catch (err: unknown) {
-        if (mounted) dispatch({ type: "ERROR", message: String(err) })
+        if (mounted && !controller.signal.aborted) {
+          dispatch({ type: "ERROR", message: String(err) })
+        }
       }
     })()
 
     return () => {
       mounted = false
-      try { proc.kill() } catch {}
+      controller.abort()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return procRef
+  return ctrlRef
 }
 
 // ── Auto-save hook ────────────────────────────────────────────────────────────

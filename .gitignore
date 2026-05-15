@@ -13,3 +13,7 @@ ui/node_modules/
 
 # Environment files
 .env
+
+.agents/
+
+skills-lock.json

@@ -1,10 +1,16 @@
 """
-Streaming NDJSON event emitter for opentui.
-Each call prints one JSON line to stdout.
+Streaming NDJSON event emitter.
+Prints to stdout when used from the CLI (main.py).
+Routes to a per-session asyncio Queue when running inside the FastAPI server —
+controlled via the _queue_ctx contextvar, which run_in_executor inherits from
+the calling coroutine's context.
 """
+import contextvars
 import json
-import sys
 from datetime import datetime
+
+# Set to (queue, loop) by api/runner.py before running the graph in a thread.
+_queue_ctx: contextvars.ContextVar = contextvars.ContextVar("_queue_ctx", default=None)
 
 # UI labels for opentui rendering
 _UI = {
@@ -24,7 +30,13 @@ _UI = {
 
 def _emit(payload: dict) -> None:
     payload["ts"] = datetime.utcnow().isoformat()
-    print(json.dumps(payload, ensure_ascii=False), flush=True)
+    serialized = json.dumps(payload, ensure_ascii=False)
+    ctx = _queue_ctx.get()
+    if ctx is not None:
+        queue, loop = ctx
+        loop.call_soon_threadsafe(queue.put_nowait, serialized)
+    else:
+        print(serialized, flush=True)
 
 
 def session_start(topic: str, agents: list, discussion_rounds: int) -> None:
