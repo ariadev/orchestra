@@ -136,3 +136,25 @@ export type SessionStatus =
   | 'synthesizing'
   | 'done'
   | 'error'
+
+// ── Saved sessions ────────────────────────────────────────────────────────────
+
+export interface SavedSessionSummary {
+  id: string
+  name: string
+  topic: string
+  status: 'done' | 'error'
+  created_at: string
+  agent_count: number
+  discussion_rounds: number
+  output_type: string
+}
+
+export interface SavedSession extends SavedSessionSummary {
+  config: {
+    agents: Array<{ name: string; role: string; persona: string; model: string }>
+    output_type: string
+    discussion_rounds: number
+  }
+  events: SessionEvent[]
+}

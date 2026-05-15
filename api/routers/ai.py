@@ -136,7 +136,7 @@ async def generate_persona(req: PersonaRequest) -> PersonaResponse:
                     "and empty claims about collaboration. "
                     "The persona should push the agent to ground claims in its role's expertise, surface tradeoffs, "
                     "and respectfully challenge weak reasoning instead of repeating others. "
-                    "Write in English, in second person, as direct behavioral instructions. "
+                    "Write in user language, in second person, as direct behavioral instructions. "
                     "Return only the persona text as a single compact paragraph of 3-5 sentences, with no markdown or labels."
                 ),
             },

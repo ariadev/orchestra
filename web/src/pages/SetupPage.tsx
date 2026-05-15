@@ -39,9 +39,10 @@ const GENERATING_TEXT = 'Generating persona…'
 
 interface Props {
   onStart: (sessionId: string, config: SessionConfig) => void
+  onBack?: () => void
 }
 
-export default function SetupPage({ onStart }: Props) {
+export default function SetupPage({ onStart, onBack }: Props) {
   const [topic, setTopic] = useState('')
   const [agents, setAgents] = useState<AgentConfig[]>([])
   const [outputType, setOutputType] = useState<OutputType>('general')
@@ -237,8 +238,18 @@ export default function SetupPage({ onStart }: Props) {
 
   return (
     <div className="min-h-screen bg-[#09090b]">
-      <header className="border-b border-[#27272a] h-12 px-6 flex items-center">
-        <span className="text-[13px] font-semibold text-[#fafafa] tracking-tight">Orchestra</span>
+      <header className="border-b border-[#27272a] h-12 px-6 flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="text-[13px] font-semibold text-[#fafafa] tracking-tight"
+        >
+          Orchestra
+        </button>
+        {onBack && (
+          <button onClick={onBack} className="text-[12px] text-[#52525b]">
+            ← Sessions
+          </button>
+        )}
       </header>
 
       <div className="max-w-[600px] mx-auto px-6 py-10">
@@ -257,7 +268,7 @@ export default function SetupPage({ onStart }: Props) {
             onChange={e => setTopic(e.target.value)}
             onBlur={handleTopicBlur}
             placeholder="What problem or question should the agents deliberate on?"
-            rows={3}
+            rows={5}
             className="w-full bg-transparent border border-[#27272a] rounded-md px-3 py-2.5 text-[13px] text-[#fafafa] placeholder-[#52525b] resize-none focus:border-[#3f3f46]"
           />
         </section>
@@ -352,11 +363,10 @@ export default function SetupPage({ onStart }: Props) {
               <button
                 key={ot.value}
                 onClick={() => setOutputType(ot.value)}
-                className={`text-left px-3 py-2.5 rounded border text-[12px] ${
-                  outputType === ot.value
-                    ? 'border-[#52525b] bg-[#18181b] text-[#fafafa]'
-                    : 'border-[#27272a] text-[#71717a]'
-                }`}
+                className={`text-left px-3 py-2.5 rounded border text-[12px] ${outputType === ot.value
+                  ? 'border-[#52525b] bg-[#18181b] text-[#fafafa]'
+                  : 'border-[#27272a] text-[#71717a]'
+                  }`}
               >
                 <div className="font-medium">{ot.label}</div>
                 <div className="text-[11px] mt-0.5 text-[#52525b]">{ot.description}</div>
@@ -582,7 +592,7 @@ function AgentForm({
                 ? GENERATING_TEXT
                 : 'Expertise, perspective, and communication style…'
             }
-            rows={3}
+            rows={4}
             readOnly={isGeneratingPersona}
             className={`${inputCls} resize-none ${isGeneratingPersona ? 'text-[#52525b] cursor-default' : ''}`}
           />

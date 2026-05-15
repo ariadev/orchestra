@@ -9,6 +9,7 @@ import type {
   ReviewEvent,
   RoundExtractionEvent,
   RoundStartEvent,
+  SavedSession,
   SessionConfig,
   SessionEndEvent,
   SessionEvent,
@@ -26,21 +27,30 @@ const STATUS_TEXT: Record<SessionStatus, string> = {
   error: 'error',
 }
 
-interface Props {
-  sessionId: string
-  config: SessionConfig
-  onBack: () => void
-}
+type Props =
+  | { mode: 'live'; sessionId: string; config: SessionConfig; onBack: () => void }
+  | { mode: 'replay'; session: SavedSession; onBack: () => void }
 
-export default function SessionPage({ sessionId, config, onBack }: Props) {
+export default function SessionPage(props: Props) {
   const [events, setEvents] = useState<SessionEvent[]>([])
-  const [status, setStatus] = useState<SessionStatus>('connecting')
+  const [status, setStatus] = useState<SessionStatus>(
+    props.mode === 'replay' ? 'done' : 'connecting',
+  )
   const feedRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
 
+  // Replay mode: load events immediately
   useEffect(() => {
+    if (props.mode === 'replay') {
+      setEvents(props.session.events)
+    }
+  }, [props.mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live mode: connect SSE stream
+  useEffect(() => {
+    if (props.mode !== 'live') return
     const stop = streamSession(
-      sessionId,
+      props.sessionId,
       (event) => {
         setEvents(prev => [...prev, event])
         if (event.type === 'facilitator_framing') setStatus('framing')
@@ -52,7 +62,7 @@ export default function SessionPage({ sessionId, config, onBack }: Props) {
       () => setStatus('error'),
     )
     return stop
-  }, [sessionId])
+  }, [props.mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll when new events arrive
   useEffect(() => {
@@ -78,27 +88,33 @@ export default function SessionPage({ sessionId, config, onBack }: Props) {
     })
   }, [events])
 
+  const title = props.mode === 'replay' ? props.session.name || props.session.topic : props.config.topic
+  const subtitle = props.mode === 'replay' && props.session.name ? props.session.topic : undefined
+
   return (
     <div className="h-screen flex flex-col bg-[#09090b] overflow-hidden">
       {/* ── Header ─────────────────────────────────────────── */}
       <header className="border-b border-[#27272a] h-12 px-5 flex items-center gap-4 shrink-0">
         <button
-          onClick={onBack}
+          onClick={props.onBack}
           className="text-[12px] text-[#52525b] flex items-center gap-1 shrink-0"
         >
-          ← New
+          ← Back
         </button>
         <div className="w-px h-4 bg-[#27272a] shrink-0" />
-        <span className="text-[13px] font-medium text-[#fafafa] truncate flex-1 leading-none">
-          {config.topic}
-        </span>
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] font-medium text-[#fafafa] truncate block leading-none">
+            {title}
+          </span>
+          {subtitle && (
+            <span className="text-[11px] text-[#52525b] truncate block mt-0.5 leading-none">
+              {subtitle}
+            </span>
+          )}
+        </div>
         <span
           className={`text-[11px] font-mono shrink-0 ${
-            status === 'done'
-              ? 'text-[#71717a]'
-              : status === 'error'
-                ? 'text-[#a1a1aa]'
-                : 'text-[#52525b]'
+            status === 'done' ? 'text-[#71717a]' : status === 'error' ? 'text-[#a1a1aa]' : 'text-[#52525b]'
           }`}
         >
           {STATUS_TEXT[status]}
@@ -106,21 +122,16 @@ export default function SessionPage({ sessionId, config, onBack }: Props) {
       </header>
 
       {/* ── Event feed ─────────────────────────────────────── */}
-      <div
-        ref={feedRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto"
-      >
+      <div ref={feedRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
         <div className="max-w-[680px] mx-auto px-5 py-5">
           {status === 'connecting' && events.length === 0 && (
-            <p className="text-[12px] text-[#52525b] py-4">Connecting to session...</p>
+            <p className="text-[12px] text-[#52525b] py-4">Connecting to session…</p>
           )}
 
           {visibleEvents.map((event, i) => (
             <EventBlock key={i} event={event} />
           ))}
 
-          {/* Bottom padding when done */}
           {status === 'done' && <div className="h-16" />}
         </div>
       </div>
@@ -132,30 +143,18 @@ export default function SessionPage({ sessionId, config, onBack }: Props) {
 
 function EventBlock({ event }: { event: SessionEvent }) {
   switch (event.type) {
-    case 'session_start':
-      return <SessionStartBlock event={event} />
-    case 'facilitator_framing':
-      return <FramingBlock event={event} />
-    case 'round_start':
-      return <RoundStartBlock event={event} />
-    case 'agent_thinking':
-      return <ThinkingBlock event={event} />
-    case 'agent_response':
-      return <AgentBlock event={event} />
-    case 'round_end':
-      return null
-    case 'round_extraction':
-      return <ExtractionBlock event={event} />
-    case 'review':
-      return <ReviewBlock event={event} />
-    case 'synthesis':
-      return <SynthesisBlock event={event} />
-    case 'session_end':
-      return <SessionEndBlock event={event} />
-    case 'error':
-      return <ErrorBlock message={event.message} />
-    default:
-      return null
+    case 'session_start':      return <SessionStartBlock event={event} />
+    case 'facilitator_framing': return <FramingBlock event={event} />
+    case 'round_start':        return <RoundStartBlock event={event} />
+    case 'agent_thinking':     return <ThinkingBlock event={event} />
+    case 'agent_response':     return <AgentBlock event={event} />
+    case 'round_end':          return null
+    case 'round_extraction':   return <ExtractionBlock event={event} />
+    case 'review':             return <ReviewBlock event={event} />
+    case 'synthesis':          return <SynthesisBlock event={event} />
+    case 'session_end':        return <SessionEndBlock event={event} />
+    case 'error':              return <ErrorBlock message={event.message} />
+    default:                   return null
   }
 }
 
@@ -249,7 +248,6 @@ function ExtractionBlock({ event }: { event: RoundExtractionEvent }) {
         ⊛ round {event.round} — extraction
       </div>
       <p className="text-[12px] text-[#52525b] leading-relaxed mb-2">{event.summary}</p>
-
       {event.decisions_added.length > 0 && (
         <div className="mb-2">
           <div className="text-[10px] uppercase tracking-widest text-[#3f3f46] mb-1">Decisions</div>
@@ -261,12 +259,9 @@ function ExtractionBlock({ event }: { event: RoundExtractionEvent }) {
           ))}
         </div>
       )}
-
       {event.open_items.length > 0 && (
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-[#3f3f46] mb-1">
-            Open items
-          </div>
+          <div className="text-[10px] uppercase tracking-widest text-[#3f3f46] mb-1">Open items</div>
           {event.open_items.map((item, i) => (
             <div key={i} className="flex gap-2 text-[11px] text-[#52525b] mb-0.5">
               <span className="text-[#3f3f46] shrink-0">?</span>
@@ -284,11 +279,7 @@ function ReviewBlock({ event }: { event: ReviewEvent }) {
     <div className="py-2 flex items-baseline gap-2 mb-1">
       <span className="text-[10px] font-mono text-[#3f3f46]">⊹ review</span>
       <span className="text-[#27272a]">—</span>
-      <span
-        className={`text-[11px] font-medium ${
-          event.decision === 'synthesize' ? 'text-[#a1a1aa]' : 'text-[#71717a]'
-        }`}
-      >
+      <span className={`text-[11px] font-medium ${event.decision === 'synthesize' ? 'text-[#a1a1aa]' : 'text-[#71717a]'}`}>
         {event.decision}
       </span>
       <span className="text-[11px] text-[#3f3f46]">{event.reason}</span>
@@ -303,25 +294,17 @@ function SynthesisBlock({ event }: { event: SynthesisEvent }) {
         <span className="text-[11px] font-mono text-[#71717a]">◈ synthesis</span>
         <span className="text-[11px] text-[#3f3f46]">{event.output_type}</span>
       </div>
-
-      {/* Deliverable */}
       <div className="border border-[#27272a] rounded-lg px-5 py-4 mb-4 bg-[#0d0d0f]">
         <div className="prose-session">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{event.deliverable}</ReactMarkdown>
         </div>
       </div>
-
-      {/* Summary */}
       {event.summary && (
         <p className="text-[12px] text-[#71717a] leading-relaxed mb-3">{event.summary}</p>
       )}
-
-      {/* Key decisions */}
       {event.key_decisions.length > 0 && (
         <div className="mb-3">
-          <div className="text-[10px] uppercase tracking-widest text-[#3f3f46] mb-1.5">
-            Key decisions
-          </div>
+          <div className="text-[10px] uppercase tracking-widest text-[#3f3f46] mb-1.5">Key decisions</div>
           {event.key_decisions.map((d, i) => (
             <div key={i} className="flex gap-2 text-[12px] text-[#71717a] mb-0.5">
               <span className="text-[#3f3f46] shrink-0">·</span>
@@ -330,13 +313,9 @@ function SynthesisBlock({ event }: { event: SynthesisEvent }) {
           ))}
         </div>
       )}
-
-      {/* Open questions */}
       {event.open_questions.length > 0 && (
         <div className="mb-3">
-          <div className="text-[10px] uppercase tracking-widest text-[#3f3f46] mb-1.5">
-            Open questions
-          </div>
+          <div className="text-[10px] uppercase tracking-widest text-[#3f3f46] mb-1.5">Open questions</div>
           {event.open_questions.map((q, i) => (
             <div key={i} className="flex gap-2 text-[12px] text-[#52525b] mb-0.5">
               <span className="text-[#3f3f46] shrink-0">?</span>
@@ -345,7 +324,6 @@ function SynthesisBlock({ event }: { event: SynthesisEvent }) {
           ))}
         </div>
       )}
-
       <div className="text-[10px] font-mono text-[#3f3f46] mt-2">
         {event.model} · {event.tokens}t
       </div>

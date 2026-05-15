@@ -1,16 +1,21 @@
 from __future__ import annotations
 import asyncio
 import contextvars
+import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import AsyncGenerator
 
 import events as ev_module
 from graph import build_graph
 from state import DiscussionState
+from api import db
 
 _executor = ThreadPoolExecutor(max_workers=10)
-_sessions: dict[str, asyncio.Queue] = {}
+
+# Each entry: {"queue": Queue, "config": dict | None, "created_at": str}
+_sessions: dict[str, dict] = {}
 
 _VALID_OUTPUT_TYPES = {
     "content", "technical_report", "product_spec",
@@ -21,7 +26,11 @@ _VALID_OUTPUT_TYPES = {
 def create_session() -> tuple[str, asyncio.Queue]:
     session_id = str(uuid.uuid4())
     queue: asyncio.Queue = asyncio.Queue()
-    _sessions[session_id] = queue
+    _sessions[session_id] = {
+        "queue": queue,
+        "config": None,
+        "created_at": datetime.utcnow().isoformat(),
+    }
     return session_id, queue
 
 
@@ -30,12 +39,15 @@ def session_exists(session_id: str) -> bool:
 
 
 async def start_session(session_id: str, config: dict) -> None:
-    queue = _sessions.get(session_id)
-    if queue is None:
+    session = _sessions.get(session_id)
+    if session is None:
         return
+    session["config"] = config
+
     loop = asyncio.get_running_loop()
 
     async def _run() -> None:
+        queue = session["queue"]
         token = ev_module._queue_ctx.set((queue, loop))
         ctx = contextvars.copy_context()
         try:
@@ -82,15 +94,39 @@ def _execute_graph(config: dict) -> None:
 
 
 async def stream_session(session_id: str) -> AsyncGenerator[str, None]:
-    queue = _sessions.get(session_id)
-    if queue is None:
+    session = _sessions.get(session_id)
+    if session is None:
         return
+
+    queue = session["queue"]
+    collected: list[str] = []
+    final_status = "done"
 
     try:
         while True:
             item = await queue.get()
             if item is None:
                 break
+            collected.append(item)
+            try:
+                if json.loads(item).get("type") == "error":
+                    final_status = "error"
+            except Exception:
+                pass
             yield f"data: {item}\n\n"
     finally:
+        config = session.get("config") or {}
+        created_at = session.get("created_at", datetime.utcnow().isoformat())
         _sessions.pop(session_id, None)
+
+        if collected and config:
+            asyncio.create_task(
+                db.save_session(
+                    session_id,
+                    config.get("topic", ""),
+                    config,
+                    collected,
+                    final_status,
+                    created_at,
+                )
+            )

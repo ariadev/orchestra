@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from api.schemas import SessionRequest, SessionResponse
-from api import runner
+from api import runner, db
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -14,6 +14,19 @@ async def create_session(req: SessionRequest) -> SessionResponse:
     session_id, _ = runner.create_session()
     await runner.start_session(session_id, config)
     return SessionResponse(session_id=session_id)
+
+
+@router.get("")
+async def list_sessions() -> list[dict]:
+    return await db.list_sessions()
+
+
+@router.get("/{session_id}")
+async def get_session(session_id: str) -> dict:
+    session = await db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="session not found")
+    return session
 
 
 @router.get("/{session_id}/events")

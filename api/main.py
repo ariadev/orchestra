@@ -4,10 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import sessions, ai
+from api import db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await db.init_db()
     yield
 
 
