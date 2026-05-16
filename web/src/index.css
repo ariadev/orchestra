@@ -2,6 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Color tokens ──────────────────────────────────────────────────────────── */
+
+:root {
+  --c-bg: #09090b;
+  --c-surface: #18181b;
+  --c-surface-deep: #0d0d0f;
+  --c-surface-skeleton: #1a1a1a;
+  --c-border: #27272a;
+  --c-border-subtle: #1f1f1f;
+  --c-muted: #52525b;
+  --c-muted-2: #71717a;
+  --c-secondary: #a1a1aa;
+  --c-body: #d4d4d8;
+  --c-body-strong: #e4e4e7;
+  --c-fg: #fafafa;
+  --c-inv-bg: #fafafa;
+  --c-inv-fg: #09090b;
+  --c-selection-bg: #52525b;
+  --c-bg-alpha: rgba(9, 9, 11, 0.9);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --c-bg: #fafafa;
+    --c-surface: #f4f4f5;
+    --c-surface-deep: #ececed;
+    --c-surface-skeleton: #e4e4e7;
+    --c-border: #e4e4e7;
+    --c-border-subtle: #f0f0f1;
+    --c-muted: #a1a1aa;
+    --c-muted-2: #71717a;
+    --c-secondary: #52525b;
+    --c-body: #3f3f46;
+    --c-body-strong: #27272a;
+    --c-fg: #09090b;
+    --c-inv-bg: #09090b;
+    --c-inv-fg: #fafafa;
+    --c-selection-bg: #d4d4d8;
+    --c-bg-alpha: rgba(250, 250, 250, 0.9);
+  }
+}
+
+html.dark {
+  --c-bg: #09090b;
+  --c-surface: #18181b;
+  --c-surface-deep: #0d0d0f;
+  --c-surface-skeleton: #1a1a1a;
+  --c-border: #27272a;
+  --c-border-subtle: #1f1f1f;
+  --c-muted: #52525b;
+  --c-muted-2: #71717a;
+  --c-secondary: #a1a1aa;
+  --c-body: #d4d4d8;
+  --c-body-strong: #e4e4e7;
+  --c-fg: #fafafa;
+  --c-inv-bg: #fafafa;
+  --c-inv-fg: #09090b;
+  --c-selection-bg: #52525b;
+  --c-bg-alpha: rgba(9, 9, 11, 0.9);
+}
+
+html.light {
+  --c-bg: #fafafa;
+  --c-surface: #f4f4f5;
+  --c-surface-deep: #ececed;
+  --c-surface-skeleton: #e4e4e7;
+  --c-border: #e4e4e7;
+  --c-border-subtle: #f0f0f1;
+  --c-muted: #a1a1aa;
+  --c-muted-2: #71717a;
+  --c-secondary: #52525b;
+  --c-body: #3f3f46;
+  --c-body-strong: #27272a;
+  --c-fg: #09090b;
+  --c-inv-bg: #09090b;
+  --c-inv-fg: #fafafa;
+  --c-selection-bg: #d4d4d8;
+  --c-bg-alpha: rgba(250, 250, 250, 0.9);
+}
+
+/* ── Base styles ───────────────────────────────────────────────────────────── */
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -9,8 +91,8 @@
 
   html,
   body {
-    background: #09090b;
-    color: #fafafa;
+    background: var(--c-bg);
+    color: var(--c-fg);
     font-family: 'Inter', system-ui, sans-serif;
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
@@ -18,8 +100,8 @@
   }
 
   ::selection {
-    background: #52525b;
-    color: #fafafa;
+    background: var(--c-selection-bg);
+    color: var(--c-fg);
   }
 
   ::-webkit-scrollbar {
@@ -32,7 +114,7 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #27272a;
+    background: var(--c-border);
     border-radius: 2px;
   }
 
@@ -44,11 +126,11 @@
 
   input::placeholder,
   textarea::placeholder {
-    color: #71717a;
+    color: var(--c-muted-2);
   }
 
   input[type='range'] {
-    accent-color: #fafafa;
+    accent-color: var(--c-fg);
     cursor: pointer;
   }
 
@@ -60,13 +142,24 @@
     background-position: right 10px center;
     padding-right: 28px;
   }
+
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark) select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2352525b' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    }
+  }
+
+  html.light select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2352525b' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  }
 }
 
-/* Markdown rendered content */
+/* ── Markdown rendered content ─────────────────────────────────────────────── */
+
 .prose-session {
   font-size: 13px;
   line-height: 1.65;
-  color: #d4d4d8;
+  color: var(--c-body);
 }
 
 .prose-session p {
@@ -82,7 +175,7 @@
 .prose-session h3,
 .prose-session h4 {
   font-weight: 600;
-  color: #fafafa;
+  color: var(--c-fg);
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
 }
@@ -112,7 +205,7 @@
 
 .prose-session strong {
   font-weight: 600;
-  color: #fafafa;
+  color: var(--c-fg);
 }
 
 .prose-session em {
@@ -122,16 +215,16 @@
 .prose-session code {
   font-family: 'JetBrains Mono', Menlo, monospace;
   font-size: 0.8rem;
-  background: #18181b;
-  border: 1px solid #27272a;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 3px;
   padding: 0 4px;
-  color: #e4e4e7;
+  color: var(--c-body-strong);
 }
 
 .prose-session pre {
-  background: #18181b;
-  border: 1px solid #27272a;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 6px;
   padding: 0.875rem 1rem;
   overflow-x: auto;
@@ -147,9 +240,9 @@
 }
 
 .prose-session blockquote {
-  border-left: 2px solid #52525b;
+  border-left: 2px solid var(--c-muted);
   padding-left: 0.875rem;
-  color: #a1a1aa;
+  color: var(--c-secondary);
   margin-bottom: 0.75rem;
 }
 
@@ -162,30 +255,31 @@
 
 .prose-session th,
 .prose-session td {
-  border: 1px solid #27272a;
+  border: 1px solid var(--c-border);
   padding: 0.375rem 0.625rem;
   text-align: left;
 }
 
 .prose-session th {
-  background: #18181b;
+  background: var(--c-surface);
   font-weight: 500;
-  color: #e4e4e7;
+  color: var(--c-body-strong);
 }
 
 .prose-session hr {
   border: none;
-  border-top: 1px solid #27272a;
+  border-top: 1px solid var(--c-border);
   margin: 1rem 0;
 }
 
 .prose-session a {
-  color: #a1a1aa;
+  color: var(--c-secondary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-/* Thinking indicator */
+/* ── Thinking indicator ────────────────────────────────────────────────────── */
+
 @keyframes blink-dot {
   0%, 100% { opacity: 0.2; }
   50% { opacity: 0.8; }

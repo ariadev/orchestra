@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createSession } from '../lib/api'
 import { generatePersona, suggestAgents, type SuggestedAgent } from '../lib/ai'
 import type { AgentConfig, ModelId, OutputType, SessionConfig } from '../types'
+import { SettingsMenu } from '../lib/settings'
+import {ArrowLeft, Network} from 'lucide-react'
 
 const OUTPUT_TYPES: Array<{ value: OutputType; label: string; description: string }> = [
   { value: 'general', label: 'General', description: 'Deliberation synthesis' },
@@ -237,27 +239,32 @@ export default function SetupPage({ onStart, onBack }: Props) {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#09090b]">
-      <header className="border-b border-[#27272a] h-12 px-6 flex items-center justify-between">
+    <div className="min-h-screen bg-[var(--c-bg)]">
+      <header className="border-b border-[var(--c-border)] h-12 px-6 flex items-center justify-between">
         <button
           onClick={onBack}
-          className="text-[13px] font-semibold text-[#fafafa] tracking-tight"
+          className="flex items-center gap-2 text-[13px] font-semibold text-[var(--c-fg)] tracking-tight"
         >
+          <Network size={15} className="text-[var(--c-muted-2)]" />
           Orchestra
         </button>
-        {onBack && (
-          <button onClick={onBack} className="text-[12px] text-[#71717a]">
-            ← Sessions
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <button onClick={onBack} className="text-[var(--c-muted-2)] flex items-center gap-1.5 shrink-0">
+              <ArrowLeft size={14} />
+              <span className="text-[12px]">Sessions</span>
+            </button>
+          )}
+          <SettingsMenu />
+        </div>
       </header>
 
       <div className="max-w-[600px] mx-auto px-6 py-10">
         <div className="mb-9">
-          <h1 className="text-[20px] font-semibold text-[#fafafa] tracking-tight leading-tight">
+          <h1 className="text-[20px] font-semibold text-[var(--c-fg)] tracking-tight leading-tight">
             New session
           </h1>
-          <p className="text-[13px] text-[#a1a1aa] mt-1">Configure a multi-agent deliberation</p>
+          <p className="text-[13px] text-[var(--c-secondary)] mt-1">Configure a multi-agent deliberation</p>
         </div>
 
         {/* ── Topic ─────────────────────────────────────────── */}
@@ -269,7 +276,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
             onBlur={handleTopicBlur}
             placeholder="What problem or question should the agents deliberate on?"
             rows={5}
-            className="w-full bg-transparent border border-[#27272a] rounded-md px-3 py-2.5 text-[13px] text-[#fafafa] placeholder-[#71717a] resize-none focus:border-[#52525b]"
+            className="w-full bg-transparent border border-[var(--c-border)] rounded-md px-3 py-2.5 text-[13px] text-[var(--c-fg)] placeholder-[var(--c-muted-2)] resize-none focus:border-[var(--c-muted)]"
           />
         </section>
 
@@ -280,7 +287,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
             {!showForm && (
               <button
                 onClick={openAdd}
-                className="text-[12px] text-[#a1a1aa] border border-[#27272a] rounded px-2.5 py-1 leading-none"
+                className="text-[12px] text-[var(--c-secondary)] border border-[var(--c-border)] rounded px-2.5 py-1 leading-none"
               >
                 + Add
               </button>
@@ -299,28 +306,28 @@ export default function SetupPage({ onStart, onBack }: Props) {
 
           {/* Suggestion error */}
           {suggestionError && suggestionState === 'dismissed' && (
-            <p className="text-[11px] text-[#71717a] mb-2">{suggestionError}</p>
+            <p className="text-[11px] text-[var(--c-muted-2)] mb-2">{suggestionError}</p>
           )}
 
           {/* Agent list */}
           {agents.length > 0 && (
-            <div className="border border-[#27272a] rounded-md divide-y divide-[#1f1f1f] mb-3">
+            <div className="border border-[var(--c-border)] rounded-md divide-y divide-[var(--c-border-subtle)] mb-3">
               {agents.map((agent, idx) => (
                 <div key={agent.id} className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="text-[11px] text-[#52525b] font-mono w-4 shrink-0 tabular-nums">
+                  <span className="text-[11px] text-[var(--c-muted)] font-mono w-4 shrink-0 tabular-nums">
                     {idx + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-[13px] text-[#fafafa] font-medium">{agent.name}</span>
-                    <span className="text-[13px] text-[#52525b] mx-2">·</span>
-                    <span className="text-[13px] text-[#a1a1aa]">{agent.role}</span>
+                    <span className="text-[13px] text-[var(--c-fg)] font-medium">{agent.name}</span>
+                    <span className="text-[13px] text-[var(--c-muted)] mx-2">·</span>
+                    <span className="text-[13px] text-[var(--c-secondary)]">{agent.role}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[11px] text-[#71717a] font-mono">{agent.model}</span>
-                    <button onClick={() => openEdit(agent)} className="text-[11px] text-[#71717a]">
+                    <span className="text-[11px] text-[var(--c-muted-2)] font-mono">{agent.model}</span>
+                    <button onClick={() => openEdit(agent)} className="text-[11px] text-[var(--c-muted-2)]">
                       edit
                     </button>
-                    <button onClick={() => removeAgent(agent.id)} className="text-[11px] text-[#71717a]">
+                    <button onClick={() => removeAgent(agent.id)} className="text-[11px] text-[var(--c-muted-2)]">
                       remove
                     </button>
                   </div>
@@ -331,8 +338,8 @@ export default function SetupPage({ onStart, onBack }: Props) {
 
           {/* Empty state */}
           {agents.length === 0 && !showForm && suggestionState !== 'loading' && suggestionState !== 'ready' && (
-            <div className="border border-dashed border-[#27272a] rounded-md px-4 py-6 text-center">
-              <p className="text-[12px] text-[#71717a]">No members yet</p>
+            <div className="border border-dashed border-[var(--c-border)] rounded-md px-4 py-6 text-center">
+              <p className="text-[12px] text-[var(--c-muted-2)]">No members yet</p>
             </div>
           )}
 
@@ -364,12 +371,12 @@ export default function SetupPage({ onStart, onBack }: Props) {
                 key={ot.value}
                 onClick={() => setOutputType(ot.value)}
                 className={`text-left px-3 py-2.5 rounded border text-[12px] ${outputType === ot.value
-                  ? 'border-[#71717a] bg-[#18181b] text-[#fafafa]'
-                  : 'border-[#27272a] text-[#a1a1aa]'
+                  ? 'border-[var(--c-muted-2)] bg-[var(--c-surface)] text-[var(--c-fg)]'
+                  : 'border-[var(--c-border)] text-[var(--c-secondary)]'
                   }`}
               >
                 <div className="font-medium">{ot.label}</div>
-                <div className="text-[11px] mt-0.5 text-[#71717a]">{ot.description}</div>
+                <div className="text-[11px] mt-0.5 text-[var(--c-muted-2)]">{ot.description}</div>
               </button>
             ))}
           </div>
@@ -380,8 +387,8 @@ export default function SetupPage({ onStart, onBack }: Props) {
           <div className="flex items-baseline justify-between mb-2">
             <Label noMargin>Discussion rounds</Label>
             <div className="text-right">
-              <span className="text-[13px] font-medium text-[#fafafa] tabular-nums">{rounds}</span>
-              <span className="text-[11px] text-[#71717a] ml-1.5">{ROUND_LABELS[rounds]}</span>
+              <span className="text-[13px] font-medium text-[var(--c-fg)] tabular-nums">{rounds}</span>
+              <span className="text-[11px] text-[var(--c-muted-2)] ml-1.5">{ROUND_LABELS[rounds]}</span>
             </div>
           </div>
           <input
@@ -391,13 +398,13 @@ export default function SetupPage({ onStart, onBack }: Props) {
             step={1}
             value={rounds}
             onChange={e => setRounds(Number(e.target.value))}
-            className="w-full h-0.5 bg-[#27272a] rounded"
+            className="w-full h-0.5 bg-[var(--c-border)] rounded"
           />
           <div className="flex justify-between mt-1.5">
             {[1, 2, 3, 4, 5].map(n => (
               <span
                 key={n}
-                className={`text-[10px] tabular-nums ${n === rounds ? 'text-[#a1a1aa]' : 'text-[#52525b]'}`}
+                className={`text-[10px] tabular-nums ${n === rounds ? 'text-[var(--c-secondary)]' : 'text-[var(--c-muted)]'}`}
               >
                 {n}
               </span>
@@ -407,8 +414,8 @@ export default function SetupPage({ onStart, onBack }: Props) {
 
         {/* ── Error ─────────────────────────────────────────── */}
         {error && (
-          <div className="mb-4 border border-[#27272a] rounded-md px-3 py-2.5 bg-[#18181b]">
-            <p className="text-[12px] text-[#a1a1aa]">{error}</p>
+          <div className="mb-4 border border-[var(--c-border)] rounded-md px-3 py-2.5 bg-[var(--c-surface)]">
+            <p className="text-[12px] text-[var(--c-secondary)]">{error}</p>
           </div>
         )}
 
@@ -416,7 +423,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
         <button
           onClick={handleStart}
           disabled={!canStart}
-          className="w-full h-11 bg-[#fafafa] text-[#09090b] text-[13px] font-semibold rounded-md disabled:opacity-25 disabled:cursor-not-allowed"
+          className="w-full h-11 bg-[var(--c-inv-bg)] text-[var(--c-inv-fg)] text-[13px] font-semibold rounded-md disabled:opacity-25 disabled:cursor-not-allowed"
         >
           {loading ? 'Starting...' : 'Start session'}
         </button>
@@ -439,18 +446,18 @@ function SuggestionPanel({
   onDismiss: () => void
 }) {
   return (
-    <div className="border border-[#27272a] rounded-md mb-3 overflow-hidden">
+    <div className="border border-[var(--c-border)] rounded-md mb-3 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#1f1f1f]">
-        <span className="text-[11px] text-[#a1a1aa]">✦</span>
-        <span className="text-[11px] text-[#a1a1aa]">suggested agents</span>
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[var(--c-border-subtle)]">
+        <span className="text-[11px] text-[var(--c-secondary)]">✦</span>
+        <span className="text-[11px] text-[var(--c-secondary)]">suggested agents</span>
         {state === 'loading' && (
-          <span className="text-[11px] text-[#52525b]">— thinking…</span>
+          <span className="text-[11px] text-[var(--c-muted)]">— thinking…</span>
         )}
         {state === 'ready' && (
-          <span className="text-[11px] text-[#52525b]">— from your topic</span>
+          <span className="text-[11px] text-[var(--c-muted)]">— from your topic</span>
         )}
-        <button onClick={onDismiss} className="ml-auto text-[11px] text-[#52525b]">
+        <button onClick={onDismiss} className="ml-auto text-[11px] text-[var(--c-muted)]">
           dismiss
         </button>
       </div>
@@ -460,9 +467,9 @@ function SuggestionPanel({
         <div className="px-3 py-3 space-y-2">
           {[1, 2, 3].map(i => (
             <div key={i} className="space-y-1.5">
-              <div className="h-2.5 bg-[#1f1f1f] rounded w-2/5" />
-              <div className="h-2 bg-[#1a1a1a] rounded w-full" />
-              <div className="h-2 bg-[#1a1a1a] rounded w-4/5" />
+              <div className="h-2.5 bg-[var(--c-border-subtle)] rounded w-2/5" />
+              <div className="h-2 bg-[var(--c-surface-skeleton)] rounded w-full" />
+              <div className="h-2 bg-[var(--c-surface-skeleton)] rounded w-4/5" />
             </div>
           ))}
         </div>
@@ -471,14 +478,14 @@ function SuggestionPanel({
       {/* Suggested agents list */}
       {state === 'ready' && (
         <>
-          <div className="divide-y divide-[#1a1a1a]">
+          <div className="divide-y divide-[var(--c-surface-skeleton)]">
             {agents.map((agent, i) => (
               <div key={i} className="px-3 py-2.5">
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-[13px] text-[#fafafa] font-medium">{agent.name}</span>
-                  <span className="text-[12px] text-[#a1a1aa]">{agent.role}</span>
+                  <span className="text-[13px] text-[var(--c-fg)] font-medium">{agent.name}</span>
+                  <span className="text-[12px] text-[var(--c-secondary)]">{agent.role}</span>
                 </div>
-                <p className="text-[11px] text-[#71717a] leading-relaxed line-clamp-2">
+                <p className="text-[11px] text-[var(--c-muted-2)] leading-relaxed line-clamp-2">
                   {agent.persona}
                 </p>
               </div>
@@ -486,16 +493,16 @@ function SuggestionPanel({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[#1f1f1f]">
+          <div className="flex items-center gap-2 px-3 py-2.5 border-t border-[var(--c-border-subtle)]">
             <button
               onClick={onAccept}
-              className="text-[12px] text-[#09090b] bg-[#fafafa] rounded px-3 py-1.5 font-medium"
+              className="text-[12px] text-[var(--c-inv-fg)] bg-[var(--c-inv-bg)] rounded px-3 py-1.5 font-medium"
             >
               Use these agents
             </button>
             <button
               onClick={onDismiss}
-              className="text-[12px] text-[#a1a1aa] border border-[#27272a] rounded px-3 py-1.5"
+              className="text-[12px] text-[var(--c-secondary)] border border-[var(--c-border)] rounded px-3 py-1.5"
             >
               Create manually
             </button>
@@ -536,18 +543,18 @@ function AgentForm({
   onCancel,
 }: AgentFormProps) {
   const inputCls =
-    'w-full bg-transparent border border-[#27272a] rounded px-2.5 py-1.5 text-[13px] text-[#fafafa] focus:border-[#52525b]'
+    'w-full bg-transparent border border-[var(--c-border)] rounded px-2.5 py-1.5 text-[13px] text-[var(--c-fg)] focus:border-[var(--c-muted)]'
 
   return (
-    <div className="border border-[#27272a] rounded-md p-4">
-      <p className="text-[11px] uppercase tracking-widest text-[#a1a1aa] font-medium mb-4">
+    <div className="border border-[var(--c-border)] rounded-md p-4">
+      <p className="text-[11px] uppercase tracking-widest text-[var(--c-secondary)] font-medium mb-4">
         {editingId ? 'Edit member' : 'Add member'}
       </p>
 
       <div className="space-y-3">
         {/* Name */}
         <div>
-          <label className="block text-[11px] text-[#a1a1aa] mb-1">Name</label>
+          <label className="block text-[11px] text-[var(--c-secondary)] mb-1">Name</label>
           <input
             value={form.name}
             onChange={e => onNameChange(e.target.value)}
@@ -558,7 +565,7 @@ function AgentForm({
 
         {/* Role */}
         <div>
-          <label className="block text-[11px] text-[#a1a1aa] mb-1">Role</label>
+          <label className="block text-[11px] text-[var(--c-secondary)] mb-1">Role</label>
           <input
             value={form.role}
             onChange={e => onRoleChange(e.target.value)}
@@ -571,17 +578,17 @@ function AgentForm({
         {/* Persona */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-[11px] text-[#a1a1aa]">Persona</label>
+            <label className="text-[11px] text-[var(--c-secondary)]">Persona</label>
             {isGeneratingPersona && (
               <button
                 onClick={onCancelGeneration}
-                className="text-[10px] text-[#52525b]"
+                className="text-[10px] text-[var(--c-muted)]"
               >
                 cancel
               </button>
             )}
             {!editingId && !isGeneratingPersona && !form.persona && form.role.trim() && (
-              <span className="text-[10px] text-[#52525b]">auto-fills on role blur</span>
+              <span className="text-[10px] text-[var(--c-muted)]">auto-fills on role blur</span>
             )}
           </div>
           <textarea
@@ -594,25 +601,25 @@ function AgentForm({
             }
             rows={4}
             readOnly={isGeneratingPersona}
-            className={`${inputCls} resize-none ${isGeneratingPersona ? 'text-[#71717a] cursor-default' : ''}`}
+            className={`${inputCls} resize-none ${isGeneratingPersona ? 'text-[var(--c-muted-2)] cursor-default' : ''}`}
           />
           {isGeneratingPersona && (
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="dot-blink text-[10px] text-[#71717a]">.</span>
-              <span className="dot-blink text-[10px] text-[#71717a]">.</span>
-              <span className="dot-blink text-[10px] text-[#71717a]">.</span>
-              <span className="text-[10px] text-[#52525b] ml-0.5">generating persona</span>
+              <span className="dot-blink text-[10px] text-[var(--c-muted-2)]">.</span>
+              <span className="dot-blink text-[10px] text-[var(--c-muted-2)]">.</span>
+              <span className="dot-blink text-[10px] text-[var(--c-muted-2)]">.</span>
+              <span className="text-[10px] text-[var(--c-muted)] ml-0.5">generating persona</span>
             </div>
           )}
         </div>
 
         {/* Model */}
         <div>
-          <label className="block text-[11px] text-[#a1a1aa] mb-1">Model</label>
+          <label className="block text-[11px] text-[var(--c-secondary)] mb-1">Model</label>
           <select
             value={form.model}
             onChange={e => onModelChange(e.target.value as ModelId)}
-            className="bg-[#09090b] border border-[#27272a] rounded px-2.5 py-1.5 text-[13px] text-[#fafafa] focus:border-[#52525b] cursor-pointer"
+            className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded px-2.5 py-1.5 text-[13px] text-[var(--c-fg)] focus:border-[var(--c-muted)] cursor-pointer"
           >
             {MODELS.map(m => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -622,19 +629,19 @@ function AgentForm({
       </div>
 
       {formError && (
-        <p className="mt-2.5 text-[11px] text-[#a1a1aa]">{formError}</p>
+        <p className="mt-2.5 text-[11px] text-[var(--c-secondary)]">{formError}</p>
       )}
 
       <div className="flex justify-end gap-2 mt-4">
         <button
           onClick={onCancel}
-          className="text-[12px] text-[#a1a1aa] border border-[#27272a] rounded px-3 py-1.5"
+          className="text-[12px] text-[var(--c-secondary)] border border-[var(--c-border)] rounded px-3 py-1.5"
         >
           Cancel
         </button>
         <button
           onClick={onSubmit}
-          className="text-[12px] text-[#09090b] bg-[#fafafa] rounded px-3 py-1.5 font-medium"
+          className="text-[12px] text-[var(--c-inv-fg)] bg-[var(--c-inv-bg)] rounded px-3 py-1.5 font-medium"
         >
           {editingId ? 'Save' : 'Add'}
         </button>
@@ -645,7 +652,7 @@ function AgentForm({
 
 function Label({ children, noMargin }: { children: React.ReactNode; noMargin?: boolean }) {
   return (
-    <label className={`block text-[11px] uppercase tracking-widest text-[#a1a1aa] font-medium ${noMargin ? '' : 'mb-2'}`}>
+    <label className={`block text-[11px] uppercase tracking-widest text-[var(--c-secondary)] font-medium ${noMargin ? '' : 'mb-2'}`}>
       {children}
     </label>
   )

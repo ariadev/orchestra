@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage'
 import SetupPage from './pages/SetupPage'
 import SessionPage from './pages/SessionPage'
 import type { SavedSession, SessionConfig } from './types'
+import { ThemeProvider } from './lib/theme'
 
 type View =
   | { screen: 'home' }
@@ -10,7 +11,7 @@ type View =
   | { screen: 'live'; sessionId: string; config: SessionConfig }
   | { screen: 'replay'; session: SavedSession }
 
-export default function App() {
+function AppInner() {
   const [view, setView] = useState<View>({ screen: 'home' })
 
   switch (view.screen) {
@@ -51,4 +52,12 @@ export default function App() {
         />
       )
   }
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  )
 }
