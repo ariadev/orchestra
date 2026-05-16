@@ -71,11 +71,11 @@ export default function HomePage({ onNew, onOpen }: Props) {
       <div className="max-w-[680px] mx-auto px-6 py-10">
         <div className="mb-8">
           <h1 className="text-[20px] font-semibold text-[#fafafa] tracking-tight">Sessions</h1>
-          <p className="text-[13px] text-[#71717a] mt-1">Multi-agent deliberation history</p>
+          <p className="text-[13px] text-[#a1a1aa] mt-1">Multi-agent deliberation history</p>
         </div>
 
         {loading && (
-          <div className="py-12 text-center text-[12px] text-[#52525b]">Loading…</div>
+          <div className="py-12 text-center text-[12px] text-[#71717a]">Loading…</div>
         )}
 
         {error && (
@@ -86,8 +86,8 @@ export default function HomePage({ onNew, onOpen }: Props) {
 
         {!loading && !error && sessions.length === 0 && (
           <div className="border border-dashed border-[#27272a] rounded-lg py-16 text-center">
-            <p className="text-[13px] text-[#52525b] mb-1">No sessions yet</p>
-            <p className="text-[12px] text-[#3f3f46]">Start a session to see it here</p>
+            <p className="text-[13px] text-[#71717a] mb-1">No sessions yet</p>
+            <p className="text-[12px] text-[#52525b]">Start a session to see it here</p>
             <button
               onClick={onNew}
               className="mt-5 text-[12px] font-medium text-[#09090b] bg-[#fafafa] rounded px-4 py-2"
@@ -108,7 +108,7 @@ export default function HomePage({ onNew, onOpen }: Props) {
                 <div key={session.id} className="flex items-start gap-3 px-5 py-4">
                   {/* Status dot */}
                   <div className="shrink-0 mt-[5px]">
-                    <div className={`w-1.5 h-1.5 rounded-full ${session.status === 'done' ? 'bg-[#52525b]' : 'bg-[#3f3f46]'}`} />
+                    <div className={`w-1.5 h-1.5 rounded-full ${session.status === 'done' ? 'bg-[#71717a]' : 'bg-[#52525b]'}`} />
                   </div>
 
                   {/* Content — clicking opens the session */}
@@ -120,20 +120,20 @@ export default function HomePage({ onNew, onOpen }: Props) {
                     className={`flex-1 min-w-0 text-left ${!isConfirming && !isOpening ? 'cursor-pointer' : 'cursor-default'}`}
                   >
                     <div className="flex items-baseline gap-2.5">
-                      <span className={`text-[13px] font-medium truncate ${isOpening ? 'text-[#71717a]' : 'text-[#fafafa]'}`}>
+                      <span className={`text-[13px] font-medium truncate ${isOpening ? 'text-[#a1a1aa]' : 'text-[#fafafa]'}`}>
                         {session.name || session.topic}
                       </span>
                       {isOpening && (
-                        <span className="text-[11px] text-[#52525b] shrink-0">opening…</span>
+                        <span className="text-[11px] text-[#71717a] shrink-0">opening…</span>
                       )}
                     </div>
 
-                    <p className="text-[12px] text-[#71717a] mt-0.5 truncate">{session.topic}</p>
+                    <p className="text-[12px] text-[#a1a1aa] mt-0.5 truncate">{session.topic}</p>
 
                     {/* Metadata line — swaps for confirm prompt */}
                     {isConfirming ? (
                       <div className="flex items-center gap-2 mt-1.5 text-[11px]">
-                        <span className="text-[#71717a]">Delete this session?</span>
+                        <span className="text-[#a1a1aa]">Delete this session?</span>
                         <button
                           onClick={e => { e.stopPropagation(); void handleDelete(session.id) }}
                           disabled={isDeleting}
@@ -141,16 +141,16 @@ export default function HomePage({ onNew, onOpen }: Props) {
                         >
                           {isDeleting ? '…' : 'yes'}
                         </button>
-                        <span className="text-[#3f3f46]">·</span>
+                        <span className="text-[#52525b]">·</span>
                         <button
                           onClick={e => { e.stopPropagation(); setConfirmDelete(null) }}
-                          className="text-[#52525b]"
+                          className="text-[#71717a]"
                         >
                           cancel
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 mt-1.5 text-[11px] text-[#3f3f46]">
+                      <div className="flex items-center gap-2 mt-1.5 text-[11px] text-[#52525b]">
                         <span>{session.agent_count} agent{session.agent_count !== 1 ? 's' : ''}</span>
                         <span>·</span>
                         <span>{session.discussion_rounds} round{session.discussion_rounds !== 1 ? 's' : ''}</span>
@@ -166,7 +166,7 @@ export default function HomePage({ onNew, onOpen }: Props) {
                   <button
                     onClick={() => setConfirmDelete(isConfirming ? null : session.id)}
                     disabled={isOpening || isDeleting}
-                    className={`shrink-0 text-[15px] leading-none mt-px disabled:opacity-20 ${isConfirming ? 'text-[#71717a]' : 'text-[#3f3f46]'}`}
+                    className={`shrink-0 text-[15px] leading-none mt-px disabled:opacity-20 ${isConfirming ? 'text-[#a1a1aa]' : 'text-[#52525b]'}`}
                   >
                     ×
                   </button>

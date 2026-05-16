@@ -246,7 +246,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
           Orchestra
         </button>
         {onBack && (
-          <button onClick={onBack} className="text-[12px] text-[#52525b]">
+          <button onClick={onBack} className="text-[12px] text-[#71717a]">
             ← Sessions
           </button>
         )}
@@ -257,7 +257,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
           <h1 className="text-[20px] font-semibold text-[#fafafa] tracking-tight leading-tight">
             New session
           </h1>
-          <p className="text-[13px] text-[#71717a] mt-1">Configure a multi-agent deliberation</p>
+          <p className="text-[13px] text-[#a1a1aa] mt-1">Configure a multi-agent deliberation</p>
         </div>
 
         {/* ── Topic ─────────────────────────────────────────── */}
@@ -269,7 +269,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
             onBlur={handleTopicBlur}
             placeholder="What problem or question should the agents deliberate on?"
             rows={5}
-            className="w-full bg-transparent border border-[#27272a] rounded-md px-3 py-2.5 text-[13px] text-[#fafafa] placeholder-[#52525b] resize-none focus:border-[#3f3f46]"
+            className="w-full bg-transparent border border-[#27272a] rounded-md px-3 py-2.5 text-[13px] text-[#fafafa] placeholder-[#71717a] resize-none focus:border-[#52525b]"
           />
         </section>
 
@@ -299,7 +299,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
 
           {/* Suggestion error */}
           {suggestionError && suggestionState === 'dismissed' && (
-            <p className="text-[11px] text-[#52525b] mb-2">{suggestionError}</p>
+            <p className="text-[11px] text-[#71717a] mb-2">{suggestionError}</p>
           )}
 
           {/* Agent list */}
@@ -307,20 +307,20 @@ export default function SetupPage({ onStart, onBack }: Props) {
             <div className="border border-[#27272a] rounded-md divide-y divide-[#1f1f1f] mb-3">
               {agents.map((agent, idx) => (
                 <div key={agent.id} className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="text-[11px] text-[#3f3f46] font-mono w-4 shrink-0 tabular-nums">
+                  <span className="text-[11px] text-[#52525b] font-mono w-4 shrink-0 tabular-nums">
                     {idx + 1}
                   </span>
                   <div className="flex-1 min-w-0">
                     <span className="text-[13px] text-[#fafafa] font-medium">{agent.name}</span>
-                    <span className="text-[13px] text-[#3f3f46] mx-2">·</span>
+                    <span className="text-[13px] text-[#52525b] mx-2">·</span>
                     <span className="text-[13px] text-[#a1a1aa]">{agent.role}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[11px] text-[#52525b] font-mono">{agent.model}</span>
-                    <button onClick={() => openEdit(agent)} className="text-[11px] text-[#52525b]">
+                    <span className="text-[11px] text-[#71717a] font-mono">{agent.model}</span>
+                    <button onClick={() => openEdit(agent)} className="text-[11px] text-[#71717a]">
                       edit
                     </button>
-                    <button onClick={() => removeAgent(agent.id)} className="text-[11px] text-[#52525b]">
+                    <button onClick={() => removeAgent(agent.id)} className="text-[11px] text-[#71717a]">
                       remove
                     </button>
                   </div>
@@ -332,7 +332,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
           {/* Empty state */}
           {agents.length === 0 && !showForm && suggestionState !== 'loading' && suggestionState !== 'ready' && (
             <div className="border border-dashed border-[#27272a] rounded-md px-4 py-6 text-center">
-              <p className="text-[12px] text-[#52525b]">No members yet</p>
+              <p className="text-[12px] text-[#71717a]">No members yet</p>
             </div>
           )}
 
@@ -364,12 +364,12 @@ export default function SetupPage({ onStart, onBack }: Props) {
                 key={ot.value}
                 onClick={() => setOutputType(ot.value)}
                 className={`text-left px-3 py-2.5 rounded border text-[12px] ${outputType === ot.value
-                  ? 'border-[#52525b] bg-[#18181b] text-[#fafafa]'
-                  : 'border-[#27272a] text-[#71717a]'
+                  ? 'border-[#71717a] bg-[#18181b] text-[#fafafa]'
+                  : 'border-[#27272a] text-[#a1a1aa]'
                   }`}
               >
                 <div className="font-medium">{ot.label}</div>
-                <div className="text-[11px] mt-0.5 text-[#52525b]">{ot.description}</div>
+                <div className="text-[11px] mt-0.5 text-[#71717a]">{ot.description}</div>
               </button>
             ))}
           </div>
@@ -381,7 +381,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
             <Label noMargin>Discussion rounds</Label>
             <div className="text-right">
               <span className="text-[13px] font-medium text-[#fafafa] tabular-nums">{rounds}</span>
-              <span className="text-[11px] text-[#52525b] ml-1.5">{ROUND_LABELS[rounds]}</span>
+              <span className="text-[11px] text-[#71717a] ml-1.5">{ROUND_LABELS[rounds]}</span>
             </div>
           </div>
           <input
@@ -397,7 +397,7 @@ export default function SetupPage({ onStart, onBack }: Props) {
             {[1, 2, 3, 4, 5].map(n => (
               <span
                 key={n}
-                className={`text-[10px] tabular-nums ${n === rounds ? 'text-[#a1a1aa]' : 'text-[#3f3f46]'}`}
+                className={`text-[10px] tabular-nums ${n === rounds ? 'text-[#a1a1aa]' : 'text-[#52525b]'}`}
               >
                 {n}
               </span>
@@ -442,15 +442,15 @@ function SuggestionPanel({
     <div className="border border-[#27272a] rounded-md mb-3 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#1f1f1f]">
-        <span className="text-[11px] text-[#71717a]">✦</span>
-        <span className="text-[11px] text-[#71717a]">suggested agents</span>
+        <span className="text-[11px] text-[#a1a1aa]">✦</span>
+        <span className="text-[11px] text-[#a1a1aa]">suggested agents</span>
         {state === 'loading' && (
-          <span className="text-[11px] text-[#3f3f46]">— thinking…</span>
+          <span className="text-[11px] text-[#52525b]">— thinking…</span>
         )}
         {state === 'ready' && (
-          <span className="text-[11px] text-[#3f3f46]">— from your topic</span>
+          <span className="text-[11px] text-[#52525b]">— from your topic</span>
         )}
-        <button onClick={onDismiss} className="ml-auto text-[11px] text-[#3f3f46]">
+        <button onClick={onDismiss} className="ml-auto text-[11px] text-[#52525b]">
           dismiss
         </button>
       </div>
@@ -476,9 +476,9 @@ function SuggestionPanel({
               <div key={i} className="px-3 py-2.5">
                 <div className="flex items-baseline gap-2 mb-1">
                   <span className="text-[13px] text-[#fafafa] font-medium">{agent.name}</span>
-                  <span className="text-[12px] text-[#71717a]">{agent.role}</span>
+                  <span className="text-[12px] text-[#a1a1aa]">{agent.role}</span>
                 </div>
-                <p className="text-[11px] text-[#52525b] leading-relaxed line-clamp-2">
+                <p className="text-[11px] text-[#71717a] leading-relaxed line-clamp-2">
                   {agent.persona}
                 </p>
               </div>
@@ -495,7 +495,7 @@ function SuggestionPanel({
             </button>
             <button
               onClick={onDismiss}
-              className="text-[12px] text-[#71717a] border border-[#27272a] rounded px-3 py-1.5"
+              className="text-[12px] text-[#a1a1aa] border border-[#27272a] rounded px-3 py-1.5"
             >
               Create manually
             </button>
@@ -536,18 +536,18 @@ function AgentForm({
   onCancel,
 }: AgentFormProps) {
   const inputCls =
-    'w-full bg-transparent border border-[#27272a] rounded px-2.5 py-1.5 text-[13px] text-[#fafafa] focus:border-[#3f3f46]'
+    'w-full bg-transparent border border-[#27272a] rounded px-2.5 py-1.5 text-[13px] text-[#fafafa] focus:border-[#52525b]'
 
   return (
     <div className="border border-[#27272a] rounded-md p-4">
-      <p className="text-[11px] uppercase tracking-widest text-[#71717a] font-medium mb-4">
+      <p className="text-[11px] uppercase tracking-widest text-[#a1a1aa] font-medium mb-4">
         {editingId ? 'Edit member' : 'Add member'}
       </p>
 
       <div className="space-y-3">
         {/* Name */}
         <div>
-          <label className="block text-[11px] text-[#71717a] mb-1">Name</label>
+          <label className="block text-[11px] text-[#a1a1aa] mb-1">Name</label>
           <input
             value={form.name}
             onChange={e => onNameChange(e.target.value)}
@@ -558,7 +558,7 @@ function AgentForm({
 
         {/* Role */}
         <div>
-          <label className="block text-[11px] text-[#71717a] mb-1">Role</label>
+          <label className="block text-[11px] text-[#a1a1aa] mb-1">Role</label>
           <input
             value={form.role}
             onChange={e => onRoleChange(e.target.value)}
@@ -571,17 +571,17 @@ function AgentForm({
         {/* Persona */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-[11px] text-[#71717a]">Persona</label>
+            <label className="text-[11px] text-[#a1a1aa]">Persona</label>
             {isGeneratingPersona && (
               <button
                 onClick={onCancelGeneration}
-                className="text-[10px] text-[#3f3f46]"
+                className="text-[10px] text-[#52525b]"
               >
                 cancel
               </button>
             )}
             {!editingId && !isGeneratingPersona && !form.persona && form.role.trim() && (
-              <span className="text-[10px] text-[#3f3f46]">auto-fills on role blur</span>
+              <span className="text-[10px] text-[#52525b]">auto-fills on role blur</span>
             )}
           </div>
           <textarea
@@ -594,25 +594,25 @@ function AgentForm({
             }
             rows={4}
             readOnly={isGeneratingPersona}
-            className={`${inputCls} resize-none ${isGeneratingPersona ? 'text-[#52525b] cursor-default' : ''}`}
+            className={`${inputCls} resize-none ${isGeneratingPersona ? 'text-[#71717a] cursor-default' : ''}`}
           />
           {isGeneratingPersona && (
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="dot-blink text-[10px] text-[#52525b]">.</span>
-              <span className="dot-blink text-[10px] text-[#52525b]">.</span>
-              <span className="dot-blink text-[10px] text-[#52525b]">.</span>
-              <span className="text-[10px] text-[#3f3f46] ml-0.5">generating persona</span>
+              <span className="dot-blink text-[10px] text-[#71717a]">.</span>
+              <span className="dot-blink text-[10px] text-[#71717a]">.</span>
+              <span className="dot-blink text-[10px] text-[#71717a]">.</span>
+              <span className="text-[10px] text-[#52525b] ml-0.5">generating persona</span>
             </div>
           )}
         </div>
 
         {/* Model */}
         <div>
-          <label className="block text-[11px] text-[#71717a] mb-1">Model</label>
+          <label className="block text-[11px] text-[#a1a1aa] mb-1">Model</label>
           <select
             value={form.model}
             onChange={e => onModelChange(e.target.value as ModelId)}
-            className="bg-[#09090b] border border-[#27272a] rounded px-2.5 py-1.5 text-[13px] text-[#fafafa] focus:border-[#3f3f46] cursor-pointer"
+            className="bg-[#09090b] border border-[#27272a] rounded px-2.5 py-1.5 text-[13px] text-[#fafafa] focus:border-[#52525b] cursor-pointer"
           >
             {MODELS.map(m => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -628,7 +628,7 @@ function AgentForm({
       <div className="flex justify-end gap-2 mt-4">
         <button
           onClick={onCancel}
-          className="text-[12px] text-[#71717a] border border-[#27272a] rounded px-3 py-1.5"
+          className="text-[12px] text-[#a1a1aa] border border-[#27272a] rounded px-3 py-1.5"
         >
           Cancel
         </button>
@@ -645,7 +645,7 @@ function AgentForm({
 
 function Label({ children, noMargin }: { children: React.ReactNode; noMargin?: boolean }) {
   return (
-    <label className={`block text-[11px] uppercase tracking-widest text-[#71717a] font-medium ${noMargin ? '' : 'mb-2'}`}>
+    <label className={`block text-[11px] uppercase tracking-widest text-[#a1a1aa] font-medium ${noMargin ? '' : 'mb-2'}`}>
       {children}
     </label>
   )
