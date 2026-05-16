@@ -66,3 +66,15 @@ class SessionRequest(BaseModel):
 
 class SessionResponse(BaseModel):
     session_id: str
+
+
+class ClarifyRequest(BaseModel):
+    answer: str
+
+    @field_validator("answer")
+    @classmethod
+    def non_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("answer must be non-empty")
+        return v

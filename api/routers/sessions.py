@@ -2,7 +2,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from api.schemas import SessionRequest, SessionResponse
+from api.schemas import SessionRequest, SessionResponse, ClarifyRequest
 from api import runner, db
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -14,6 +14,17 @@ async def create_session(req: SessionRequest) -> SessionResponse:
     session_id, _ = runner.create_session()
     await runner.start_session(session_id, config)
     return SessionResponse(session_id=session_id)
+
+
+@router.post("/{session_id}/clarify", status_code=202)
+async def clarify_session(session_id: str, req: ClarifyRequest) -> dict:
+    """Submit a clarification answer to resume a paused deliberation graph."""
+    if not runner.session_exists(session_id):
+        raise HTTPException(status_code=404, detail="session not found")
+    if not runner.session_is_interrupted(session_id):
+        raise HTTPException(status_code=400, detail="session is not waiting for clarification")
+    await runner.resume_session(session_id, req.answer)
+    return {"status": "resumed"}
 
 
 @router.get("")

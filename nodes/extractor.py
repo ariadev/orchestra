@@ -62,6 +62,7 @@ Extract the structured round record now.
 
 def round_extractor_node(state: DiscussionState) -> dict:
     current_round = state["current_round"]
+    events.round_end(current_round)
     framing = state["framing"]
 
     round_responses = [r for r in state["responses"] if r["round"] == current_round]
@@ -126,6 +127,7 @@ def round_extractor_node(state: DiscussionState) -> dict:
         "round_summaries": [summary],
         "decision_log": extracted["decisions"],
         "open_items": extracted["open_items"],
+        "current_agent_index": 0,  # reset for next round
     }
 
 

@@ -14,17 +14,19 @@ _queue_ctx: contextvars.ContextVar = contextvars.ContextVar("_queue_ctx", defaul
 
 # UI labels for opentui rendering
 _UI = {
-    "session_start":       "◆ session init",
-    "facilitator_framing": "⬡ framing",
-    "round_start":         "▶ round",
-    "agent_thinking":      "⠿ thinking",
-    "agent_response":      "  response",
-    "round_end":           "■ round complete",
-    "round_extraction":    "⊛ extracting",
-    "review":              "⊹ review",
-    "synthesis":           "◈ synthesis",
-    "session_end":         "◆ session end",
-    "error":               "✗ error",
+    "session_start":           "◆ session init",
+    "facilitator_framing":     "⬡ framing",
+    "round_start":             "▶ round",
+    "agent_thinking":          "⠿ thinking",
+    "agent_response":          "  response",
+    "round_end":               "■ round complete",
+    "round_extraction":        "⊛ extracting",
+    "review":                  "⊹ review",
+    "clarification_request":   "? clarification",
+    "clarification_answer":    "✓ answered",
+    "synthesis":               "◈ synthesis",
+    "session_end":             "◆ session end",
+    "error":                   "✗ error",
 }
 
 
@@ -141,6 +143,46 @@ def review(decision: str, reason: str, round_num: int) -> None:
             "decision_label": decision_fa,
             "reason_label": "Reason",
         },
+    })
+
+
+def clarification_request(
+    agent_name: str,
+    agent_role: str,
+    question: str,
+    why_it_matters: str,
+    round_num: int,
+) -> None:
+    """Emitted when an agent pauses to request user clarification. Graph is now interrupted."""
+    _emit({
+        "type": "clarification_request",
+        "agent": agent_name,
+        "role": agent_role,
+        "question": question,
+        "why_it_matters": why_it_matters,
+        "round": round_num,
+        "ui": {
+            "label": f"{agent_name} — {_UI['clarification_request']}",
+            "question_label": "Question",
+            "why_label": "Why this matters",
+        },
+    })
+
+
+def clarification_answer(
+    agent_name: str,
+    question: str,
+    answer: str,
+    round_num: int,
+) -> None:
+    """Emitted after user submits answer and graph resumes."""
+    _emit({
+        "type": "clarification_answer",
+        "agent": agent_name,
+        "question": question,
+        "answer": answer,
+        "round": round_num,
+        "ui": {"label": f"{agent_name} — {_UI['clarification_answer']}"},
     })
 
 

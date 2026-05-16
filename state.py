@@ -38,6 +38,25 @@ class SynthesisOutput(TypedDict):
     open_questions: List[str]
 
 
+class ClarificationRequest(TypedDict):
+    """A paused agent turn waiting for user input. Not a completed deliberation message."""
+    agent_name: str
+    agent_role: str
+    question: str
+    why_it_matters: str
+    round: int
+
+
+class ClarificationRecord(TypedDict):
+    """Audit record of a completed clarification exchange."""
+    agent_name: str
+    agent_role: str
+    question: str
+    why_it_matters: str
+    answer: str
+    round: int
+
+
 class DiscussionState(TypedDict):
     topic: str
     agents_config: List[AgentConfig]
@@ -51,3 +70,15 @@ class DiscussionState(TypedDict):
     round_summaries: Annotated[List[RoundSummary], operator.add]
     decision_log: Annotated[List[str], operator.add]  # append-only settled conclusions
     open_items: List[str]                             # maintained: resolved items drop off
+
+    # Per-agent-turn orchestration (replaces monolithic run_agents_node)
+    current_agent_index: int          # which agent is currently speaking (0-indexed)
+    current_agent_draft: Optional[str]   # scratch: response text from agent_decide → agent_commit
+    current_agent_tokens: int            # scratch: token count for the emitted agent_response
+
+    # Clarification state (ephemeral per agent turn)
+    pending_clarification: Optional[ClarificationRequest]  # set by agent_decide, cleared by agent_clarify
+    clarification_answer: Optional[str]                    # set by agent_clarify, consumed by agent_commit
+
+    # Structured audit trail of all clarification exchanges
+    clarification_history: Annotated[List[ClarificationRecord], operator.add]

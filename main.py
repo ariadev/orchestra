@@ -101,6 +101,12 @@ def main() -> None:
         "round_summaries": [],
         "decision_log": [],
         "open_items": [],
+        "current_agent_index": 0,
+        "current_agent_draft": None,
+        "current_agent_tokens": 0,
+        "pending_clarification": None,
+        "clarification_answer": None,
+        "clarification_history": [],
     }
 
     try:

@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { streamSession } from '../lib/api'
+import { streamSession, submitClarification } from '../lib/api'
 import { SettingsMenu } from '../lib/settings'
-import { ArrowLeft, Check, Copy, Download, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Download, Eye, EyeOff, Send } from 'lucide-react'
 import html2pdf from 'html2pdf.js'
 import type {
   AgentResponseEvent,
   AgentThinkingEvent,
+  ClarificationAnswerEvent,
+  ClarificationRequestEvent,
   FacilitatorFramingEvent,
   ReviewEvent,
   RoundExtractionEvent,
@@ -25,6 +27,7 @@ const STATUS_TEXT: Record<SessionStatus, string> = {
   connecting: 'connecting',
   framing: 'framing',
   running: 'running',
+  awaiting_clarification: 'awaiting clarification',
   synthesizing: 'synthesizing',
   done: 'done',
   error: 'error',
@@ -59,6 +62,8 @@ export default function SessionPage(props: Props) {
         setEvents(prev => [...prev, event])
         if (event.type === 'facilitator_framing') setStatus('framing')
         else if (event.type === 'round_start') setStatus('running')
+        else if (event.type === 'clarification_request') setStatus('awaiting_clarification')
+        else if (event.type === 'clarification_answer') setStatus('running')
         else if (event.type === 'synthesis') setStatus('synthesizing')
         else if (event.type === 'session_end') setStatus('done')
         else if (event.type === 'error') setStatus('error')
@@ -81,17 +86,23 @@ export default function SessionPage(props: Props) {
     atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100
   }
 
-  // Hide agent_thinking once the corresponding response has arrived
+  // Hide agent_thinking once the corresponding response or clarification_request has arrived
   const visibleEvents = useMemo(() => {
     return events.filter((event, index) => {
       if (event.type !== 'agent_thinking') return true
       const agentName = (event as AgentThinkingEvent).agent
-      return !events
-        .slice(index + 1)
-        .some(e => e.type === 'agent_response' && (e as AgentResponseEvent).agent === agentName)
+      const later = events.slice(index + 1)
+      const responseArrived = later.some(
+        e => e.type === 'agent_response' && (e as AgentResponseEvent).agent === agentName,
+      )
+      const clarificationArrived = later.some(
+        e => e.type === 'clarification_request' && (e as ClarificationRequestEvent).agent === agentName,
+      )
+      return !responseArrived && !clarificationArrived
     })
   }, [events])
 
+  const sessionId = props.mode === 'live' ? props.sessionId : undefined
   const title = props.mode === 'replay' ? props.session.name || props.session.topic : props.config.topic
   const subtitle = props.mode === 'replay' && props.session.name ? props.session.topic : undefined
 
@@ -120,7 +131,10 @@ export default function SessionPage(props: Props) {
         <div className="flex items-center gap-3 shrink-0">
           <span
             className={`text-[11px] font-mono ${
-              status === 'done' ? 'text-[var(--c-secondary)]' : status === 'error' ? 'text-[var(--c-secondary)]' : 'text-[var(--c-muted-2)]'
+              status === 'done' ? 'text-[var(--c-secondary)]'
+              : status === 'error' ? 'text-[var(--c-secondary)]'
+              : status === 'awaiting_clarification' ? 'text-[var(--c-fg)]'
+              : 'text-[var(--c-muted-2)]'
             }`}
           >
             {STATUS_TEXT[status]}
@@ -137,7 +151,13 @@ export default function SessionPage(props: Props) {
           )}
 
           {visibleEvents.map((event, i) => (
-            <EventBlock key={i} event={event} collapsed={agentsCollapsed} />
+            <EventBlock
+              key={i}
+              event={event}
+              collapsed={agentsCollapsed}
+              sessionId={sessionId}
+              allEvents={events}
+            />
           ))}
 
           {status === 'done' && <div className="h-16" />}
@@ -162,20 +182,35 @@ export default function SessionPage(props: Props) {
 
 // ── Individual event renderers ──────────────────────────────────────────────
 
-function EventBlock({ event, collapsed }: { event: SessionEvent; collapsed: boolean }) {
+interface EventBlockProps {
+  event: SessionEvent
+  collapsed: boolean
+  sessionId?: string
+  allEvents: SessionEvent[]
+}
+
+function EventBlock({ event, collapsed, sessionId, allEvents }: EventBlockProps) {
   switch (event.type) {
-    case 'session_start':      return <SessionStartBlock event={event} />
-    case 'facilitator_framing': return <FramingBlock event={event} />
-    case 'round_start':        return <RoundStartBlock event={event} />
-    case 'agent_thinking':     return <ThinkingBlock event={event} />
-    case 'agent_response':     return <AgentBlock event={event} collapsed={collapsed} />
-    case 'round_end':          return null
-    case 'round_extraction':   return <ExtractionBlock event={event} />
-    case 'review':             return <ReviewBlock event={event} />
-    case 'synthesis':          return <SynthesisBlock event={event} />
-    case 'session_end':        return <SessionEndBlock event={event} />
-    case 'error':              return <ErrorBlock message={event.message} />
-    default:                   return null
+    case 'session_start':         return <SessionStartBlock event={event} />
+    case 'facilitator_framing':   return <FramingBlock event={event} />
+    case 'round_start':           return <RoundStartBlock event={event} />
+    case 'agent_thinking':        return <ThinkingBlock event={event} />
+    case 'agent_response':        return <AgentBlock event={event} collapsed={collapsed} />
+    case 'round_end':             return null
+    case 'round_extraction':      return <ExtractionBlock event={event} />
+    case 'review':                return <ReviewBlock event={event} />
+    case 'clarification_request': return (
+      <ClarificationCard
+        event={event}
+        sessionId={sessionId}
+        allEvents={allEvents}
+      />
+    )
+    case 'clarification_answer':  return null  // shown as part of ClarificationCard history
+    case 'synthesis':             return <SynthesisBlock event={event} />
+    case 'session_end':           return <SessionEndBlock event={event} />
+    case 'error':                 return <ErrorBlock message={event.message} />
+    default:                      return null
   }
 }
 
@@ -264,6 +299,144 @@ function AgentBlock({ event, collapsed }: { event: AgentResponseEvent; collapsed
   )
 }
 
+// ── Clarification card ──────────────────────────────────────────────────────
+
+interface ClarificationCardProps {
+  event: ClarificationRequestEvent
+  sessionId?: string
+  allEvents: SessionEvent[]
+}
+
+function ClarificationCard({ event, sessionId, allEvents }: ClarificationCardProps) {
+  const [answer, setAnswer] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Determine if an answer has already been submitted (clarification_answer arrived)
+  const answerEvent = allEvents.find(
+    e =>
+      e.type === 'clarification_answer' &&
+      (e as ClarificationAnswerEvent).agent === event.agent &&
+      (e as ClarificationAnswerEvent).round === event.round,
+  ) as ClarificationAnswerEvent | undefined
+
+  // Determine if the agent has already resumed and finalized (agent_response arrived after this)
+  const requestIndex = allEvents.indexOf(event)
+  const responseArrived = allEvents
+    .slice(requestIndex + 1)
+    .some(
+      e =>
+        e.type === 'agent_response' &&
+        (e as AgentResponseEvent).agent === event.agent &&
+        (e as AgentResponseEvent).round === event.round,
+    )
+
+  async function handleSubmit() {
+    if (!sessionId || !answer.trim()) return
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      await submitClarification(sessionId, answer.trim())
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit')
+      setSubmitting(false)
+    }
+    // Keep submitting=true until agent_response arrives (the card will collapse)
+  }
+
+  // Once the response has arrived, render a collapsed history record
+  if (responseArrived) {
+    return (
+      <div className="pl-3 border-l-2 border-[var(--c-border)] mb-2 py-2">
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-[12px] font-medium text-[var(--c-fg)]">{event.agent}</span>
+          <span className="text-[10px] font-mono text-[var(--c-muted)]">? clarification</span>
+        </div>
+        <div className="text-[11px] text-[var(--c-muted-2)] mb-0.5">{event.question}</div>
+        {answerEvent && (
+          <div className="text-[11px] text-[var(--c-secondary)]">
+            <span className="text-[var(--c-muted)] mr-1">↳</span>
+            {answerEvent.answer}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Pending state: render the full interactive clarification card
+  return (
+    <div className="mb-3 border border-[var(--c-border)] rounded-lg bg-[var(--c-surface)] overflow-hidden">
+      {/* Card header */}
+      <div className="px-4 pt-3 pb-2 border-b border-[var(--c-border-subtle)]">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-[12px] font-semibold text-[var(--c-fg)]">{event.agent}</span>
+          <span className="text-[10px] text-[var(--c-muted)] font-mono">{event.role}</span>
+          <span className="ml-auto text-[10px] font-mono text-[var(--c-muted)] border border-[var(--c-border)] rounded px-1.5 py-0.5">
+            needs clarification
+          </span>
+        </div>
+      </div>
+
+      {/* Question + why */}
+      <div className="px-4 py-3">
+        <p className="text-[13px] text-[var(--c-body)] leading-relaxed mb-2">
+          {event.question}
+        </p>
+        {event.why_it_matters && (
+          <p className="text-[11px] text-[var(--c-muted-2)] leading-relaxed">
+            <span className="text-[var(--c-muted)] mr-1">Why this matters:</span>
+            {event.why_it_matters}
+          </p>
+        )}
+      </div>
+
+      {/* Answer input */}
+      {sessionId && (
+        <div className="px-4 pb-3">
+          <textarea
+            value={answer}
+            onChange={e => setAnswer(e.target.value)}
+            disabled={submitting || !!answerEvent}
+            placeholder="Type your answer…"
+            rows={3}
+            className="w-full text-[12px] text-[var(--c-fg)] bg-[var(--c-bg)] border border-[var(--c-border)] rounded-md px-3 py-2 resize-none placeholder:text-[var(--c-muted)] focus:outline-none focus:border-[var(--c-muted)] transition-colors disabled:opacity-50"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                handleSubmit()
+              }
+            }}
+          />
+          {submitError && (
+            <p className="text-[11px] text-[var(--c-secondary)] mt-1">{submitError}</p>
+          )}
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[10px] text-[var(--c-muted)]">⌘↵ to submit</span>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !answer.trim() || !!answerEvent}
+              className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded border border-[var(--c-border)] text-[var(--c-fg)] hover:border-[var(--c-muted)] hover:text-[var(--c-secondary)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {submitting
+                ? <><span className="dot-blink">.</span><span className="dot-blink">.</span><span className="dot-blink">.</span></>
+                : <><Send size={11} /><span>Submit</span></>
+              }
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Replay mode: show the recorded answer */}
+      {!sessionId && answerEvent && (
+        <div className="px-4 pb-3 border-t border-[var(--c-border-subtle)] pt-2">
+          <div className="text-[10px] uppercase tracking-widest text-[var(--c-muted)] mb-1">Answer</div>
+          <p className="text-[12px] text-[var(--c-secondary)]">{answerEvent.answer}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ExtractionBlock({ event }: { event: RoundExtractionEvent }) {
   return (
     <div className="py-3 ml-3 mb-2">
@@ -302,7 +475,7 @@ function ReviewBlock({ event }: { event: ReviewEvent }) {
     <div className="py-2 flex items-baseline gap-2 mb-1">
       <span className="text-[10px] font-mono text-[var(--c-muted)]">⊹ review</span>
       <span className="text-[var(--c-border)]">—</span>
-      <span className={`text-[11px] font-medium ${event.decision === 'synthesize' ? 'text-[var(--c-secondary)]' : 'text-[var(--c-secondary)]'}`}>
+      <span className="text-[11px] font-medium text-[var(--c-secondary)]">
         {event.decision}
       </span>
       <span className="text-[11px] text-[var(--c-muted)]">{event.reason}</span>

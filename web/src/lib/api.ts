@@ -42,6 +42,22 @@ export async function createSession(payload: SessionPayload): Promise<string> {
   return data.session_id as string
 }
 
+export async function submitClarification(sessionId: string, answer: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/sessions/${sessionId}/clarify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answer }),
+  })
+  if (!res.ok) {
+    let message = res.statusText
+    try {
+      const body = await res.json()
+      if (body.detail) message = String(body.detail)
+    } catch { /* ignore */ }
+    throw new Error(message)
+  }
+}
+
 export function streamSession(
   sessionId: string,
   onEvent: (event: SessionEvent) => void,

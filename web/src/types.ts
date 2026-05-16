@@ -92,6 +92,25 @@ export interface ReviewEvent {
   ts: string
 }
 
+export interface ClarificationRequestEvent {
+  type: 'clarification_request'
+  agent: string
+  role: string
+  question: string
+  why_it_matters: string
+  round: number
+  ts: string
+}
+
+export interface ClarificationAnswerEvent {
+  type: 'clarification_answer'
+  agent: string
+  question: string
+  answer: string
+  round: number
+  ts: string
+}
+
 export interface SynthesisEvent {
   type: 'synthesis'
   output_type: string
@@ -125,6 +144,8 @@ export type SessionEvent =
   | RoundEndEvent
   | RoundExtractionEvent
   | ReviewEvent
+  | ClarificationRequestEvent
+  | ClarificationAnswerEvent
   | SynthesisEvent
   | SessionEndEvent
   | ErrorEvent
@@ -133,6 +154,7 @@ export type SessionStatus =
   | 'connecting'
   | 'framing'
   | 'running'
+  | 'awaiting_clarification'
   | 'synthesizing'
   | 'done'
   | 'error'
