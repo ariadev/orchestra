@@ -26,6 +26,30 @@ A session moves through four stages:
 
 **4. Synthesis** — After deliberation ends, a synthesis agent reads the full discussion and produces a structured, formatted artifact tailored to the output type you selected.
 
+```mermaid
+flowchart TD
+    A([You submit a topic\nand configure agents]) --> B
+
+    B[Facilitator\nFrames the topic into a definition\nand key questions]
+
+    B --> C
+
+    subgraph ROUND ["  Round  "]
+        C[Agent 1 responds\nor requests clarification]
+        C -->|clarification needed| D[Session pauses\nYou answer]
+        D --> C
+        C --> E[Agent 2 responds\nsees Agent 1's reply]
+        E --> F[Agent N responds\nsees all prior replies]
+        F --> G[Round summary\nSettled decisions and open questions logged]
+    end
+
+    G -->|more rounds| C
+    G -->|deliberation complete| H
+
+    H[Synthesis\nFull discussion →\nstructured artifact]
+    H --> I([Report · Spec · Article\nStrategy · Decision brief])
+```
+
 ---
 
 ## Features
