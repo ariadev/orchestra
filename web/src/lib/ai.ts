@@ -24,7 +24,7 @@ export async function suggestAgents(
     throw new Error((body as { detail?: string }).detail ?? 'Failed to suggest agents')
   }
   const data = await res.json() as { agents: Array<{ name: string; role: string; persona: string }> }
-  return data.agents.map(a => ({ ...a, model: 'gpt-5.4' as ModelId }))
+  return data.agents.map(a => ({ ...a, model: 'gpt-5.4-mini' as ModelId }))
 }
 
 export async function generatePersona(

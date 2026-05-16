@@ -3,7 +3,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { streamSession } from '../lib/api'
 import { SettingsMenu } from '../lib/settings'
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Download, Eye, EyeOff } from 'lucide-react'
+import html2pdf from 'html2pdf.js'
 import type {
   AgentResponseEvent,
   AgentThinkingEvent,
@@ -310,14 +311,56 @@ function ReviewBlock({ event }: { event: ReviewEvent }) {
 }
 
 function SynthesisBlock({ event }: { event: SynthesisEvent }) {
+  const [copied, setCopied] = useState(false)
+  const deliverableRef = useRef<HTMLDivElement>(null)
+
+  function handleCopy() {
+    navigator.clipboard.writeText(event.deliverable).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  function handleDownloadPdf() {
+    if (!deliverableRef.current) return
+    const filename = `synthesis-${Date.now()}.pdf`
+    html2pdf()
+      .set({
+        margin: [12, 14, 12, 14],
+        filename,
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(deliverableRef.current)
+      .save()
+  }
+
   return (
     <div className="pt-5 mt-2 border-t-2 border-[var(--c-border)]">
-      <div className="flex items-baseline gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4">
         <span className="text-[11px] font-mono text-[var(--c-secondary)]">◈ synthesis</span>
         <span className="text-[11px] text-[var(--c-muted)]">{event.output_type}</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            onClick={handleCopy}
+            title="Copy to clipboard"
+            className="flex items-center gap-1 text-[11px] text-[var(--c-muted)] hover:text-[var(--c-secondary)] border border-[var(--c-border)] rounded px-2 py-0.5 transition-colors"
+          >
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+            <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            title="Download as PDF"
+            className="flex items-center gap-1 text-[11px] text-[var(--c-muted)] hover:text-[var(--c-secondary)] border border-[var(--c-border)] rounded px-2 py-0.5 transition-colors"
+          >
+            <Download size={11} />
+            <span>PDF</span>
+          </button>
+        </div>
       </div>
       <div className="border border-[var(--c-border)] rounded-lg px-5 py-4 mb-4 bg-[var(--c-surface-deep)]">
-        <div className="prose-session">
+        <div ref={deliverableRef} className="prose-session">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{event.deliverable}</ReactMarkdown>
         </div>
       </div>
