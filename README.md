@@ -1,224 +1,70 @@
 # Orchestra
 
-A multi-agent deliberation system built on [LangChain](https://github.com/langchain-ai/langchain) and [LangGraph](https://github.com/langchain-ai/langgraph), with a web frontend powered by React + Vite.
+Orchestra is an open-source multi-agent deliberation system. You define a topic and a set of AI agents — each with a distinct role and perspective — and Orchestra runs a structured, multi-round discussion that culminates in a polished, actionable output: an article, a technical report, a product spec, a strategy document, a decision brief, or a general summary.
 
-Agents collaborate in a structured "meeting room": a facilitator frames the topic, user-defined agents deliberate across one or more rounds, a review agent decides when the discussion is mature, and a synthesis agent produces clean, actionable output.
+It is built on [LangGraph](https://github.com/langchain-ai/langgraph) and [FastAPI](https://fastapi.tiangolo.com/), with a React web interface for real-time session management.
+
+---
+
+## Why Orchestra
+
+Most AI writing tools produce a single perspective. Orchestra simulates the kind of structured deliberation that happens in expert panels, design reviews, or strategic planning sessions — where different voices challenge, refine, and build on each other's thinking before arriving at a conclusion.
+
+The result is output that is more nuanced, better-reasoned, and less likely to miss important angles than anything a single prompt-response cycle can produce.
+
+---
+
+## How it works
+
+A session moves through four stages:
+
+**1. Framing** — A facilitator agent reads your topic and produces a precise definition along with the key questions the discussion needs to address. This grounds all subsequent deliberation.
+
+**2. Deliberation** — Your agents speak in turn, round by round. Each agent sees what earlier speakers in the same round said, enabling genuine back-and-forth rather than isolated monologues. Between rounds, a structured summary captures settled conclusions and open questions, keeping the discussion focused without overwhelming the context window.
+
+**3. Clarification** — Any agent can pause the session to ask you a question when it needs information only you can provide. You answer, and the session resumes exactly where it left off.
+
+**4. Synthesis** — After deliberation ends, a synthesis agent reads the full discussion and produces a structured, formatted artifact tailored to the output type you selected.
+
+---
+
+## Features
+
+- **Configurable agents** — Define any number of agents with custom names, roles, and personas. Agents can use different models, letting you balance quality and cost per role.
+
+- **AI-assisted setup** — Not sure which agents to use? Orchestra can suggest a panel of agents based on your topic, and generate detailed personas for any role you have in mind.
+
+- **Human-in-the-loop clarification** — Sessions are interruptible. When an agent needs your input, the discussion pauses and waits. Your answer is woven into the agent's response before the session continues.
+
+- **Structured memory** — As rounds progress, Orchestra maintains a living record of settled decisions and open questions. Agents consult this instead of re-reading the full transcript, keeping deliberation sharp in long sessions.
+
+- **Multiple output types** — Choose the format that fits your goal: a written piece, a technical report, a product spec, a strategic plan, a decision brief, or a general summary. The synthesis step is tailored to each format.
+
+- **Real-time streaming** — Watch the session unfold live. Every event — framing, each agent's response, round summaries, synthesis — streams to the interface as it happens.
+
+- **Session history** — Completed sessions are saved and can be replayed in full at any time. Export the final synthesis as Markdown or PDF.
 
 ---
 
 ## Quick start
 
-**Requirements:** Python 3.12+, Node.js + npm
+**Requirements:** Python 3.12+, Node.js, an OpenAI API key
 
 ```bash
-# 1. First-time setup (venv, Python deps, web deps, .env scaffold)
+# First-time setup
 ./orchestra --setup
 
-# 2. Add your OpenAI API key
+# Add your OpenAI API key to .env
 $EDITOR .env
 
-# 3. Launch
+# Launch
 ./orchestra
 ```
 
-The API server starts on port 7890 and the web dev server opens at `http://localhost:3000`.
+The API runs on `http://localhost:7890` and the web interface opens at `http://localhost:3000`.
 
 ---
 
-## `orchestra`
+## License
 
-```
-./orchestra [--setup]
-```
-
-| Flag | Effect |
-|---|---|
-| *(none)* | Pre-flight checks then launch API + web dev server |
-| `--setup` | Create `.env`, create Python venv, install all dependencies |
-
-**Pre-flight checks** (run every launch):
-- `OPENAI_API_KEY` is set (from `.env` or environment)
-- `.venv/bin/python3` exists
-- `web/node_modules` exists
-
-Any failure prints a clear error and exits.
-
----
-
-## Project structure
-
-```
-orchestra/
-├── orchestra            ← single entry point (start here)
-├── .env.example         ← copy to .env and add OPENAI_API_KEY
-│
-├── events.py            ← NDJSON event emitter (routes to SSE queue)
-├── state.py             ← LangGraph TypedDict state
-├── models.py            ← model registry (gpt-5.4 / mini / nano)
-├── graph.py             ← LangGraph StateGraph wiring
-├── nodes/
-│   ├── facilitator.py   ← frames topic → definition + 3-5 key questions
-│   ├── agents.py        ← runs user agents sequentially per round
-│   ├── reviewer.py      ← continue vs. synthesize decision
-│   └── synthesis.py     ← final structured output
-│
-├── api/                 ← FastAPI backend
-│   ├── main.py          ← app setup, CORS, routers
-│   ├── runner.py        ← session lifecycle, graph execution, SSE streaming
-│   ├── schemas.py       ← Pydantic request/response models
-│   ├── db.py            ← SQLite session persistence
-│   └── routers/
-│       ├── sessions.py  ← /sessions endpoints
-│       └── ai.py        ← /ai/suggest-agents, /ai/generate-persona
-│
-├── web/                 ← React + Vite frontend
-│   └── src/
-│       ├── pages/       ← HomePage, SetupPage, SessionPage
-│       └── lib/         ← api.ts (fetch/SSE), settings, history
-│
-├── sample_input.json    ← example backend config for CLI testing
-└── requirements.txt
-```
-
----
-
-## Architecture
-
-### Agent pipeline
-
-```
-START
-  │
-  ▼
-Facilitator          Refines topic → crisp definition + 3-5 key questions
-  │
-  ▼
-Run Agents ◄─────┐   Each agent speaks in turn; later speakers see earlier ones
-  │               │
-  ▼               │ (continue)
-Reviewer          │   Decides: synthesize (preferred) or another round?
-  │               │
-  ├───────────────┘
-  │ (synthesize)
-  ▼
-Synthesis            Merges all rounds → structured, de-duplicated output
-  │
-END
-```
-
-### Web ↔ backend
-
-```
-React web app (Vite, port 3000)
-  └── SetupPage    user fills topic + agents, submits
-  └── SessionPage
-       └── POST /sessions           → starts graph execution
-       └── GET  /sessions/:id/events → SSE stream of NDJSON events
-       └── POST /sessions/:id/clarify → resumes after clarification interrupt
-```
-
----
-
-## Backend: input schema
-
-POST `/sessions` accepts:
-
-```json
-{
-  "topic":            "The question or problem the agents should deliberate on.",
-  "discussion_rounds": 3,
-  "output_type":      "general",
-  "agents": [
-    {
-      "name":    "Display name",
-      "role":    "Professional or functional role",
-      "persona": "Behavioural description — perspective, biases, expertise style",
-      "model":   "gpt-5.4"
-    }
-  ]
-}
-```
-
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `topic` | string | yes | — | The deliberation subject |
-| `discussion_rounds` | integer | no | `3` | Capped at `5` |
-| `output_type` | string | no | `general` | See output types below |
-| `agents` | array | yes | — | 1–10 agents |
-| `agents[].name` | string | yes | — | — |
-| `agents[].role` | string | yes | — | — |
-| `agents[].persona` | string | yes | — | — |
-| `agents[].model` | string | no | `gpt-5.4` | See model options below |
-
-### Available models
-
-| Model | Use for |
-|---|---|
-| `gpt-5.4` | Highest quality; default for facilitator, reviewer, synthesis |
-| `gpt-5.4-mini` | Balanced quality / cost |
-| `gpt-5.4-nano` | Fastest, lowest cost |
-
-### Output types
-
-`general`, `content`, `technical_report`, `product_spec`, `strategy`, `decision_brief`
-
----
-
-## Backend: NDJSON event stream
-
-GET `/sessions/:id/events` returns a Server-Sent Events stream. Each `data:` payload is a JSON object:
-
-```
-session_start
-facilitator_framing
-round_start
-  agent_thinking
-  agent_response
-  ...
-round_end
-review                  ← decision: "continue" or "synthesize"
-[round_start … round_end … review]  ← repeated if continuing
-synthesis
-session_end
-```
-
-### Clarification interrupts
-
-When an agent needs user input, the stream emits `clarification_request` and pauses. Submit the answer via POST `/sessions/:id/clarify` to resume:
-
-```json
-{ "answer": "your answer here" }
-```
-
----
-
-## CLI testing (backend only)
-
-```bash
-cat sample_input.json | .venv/bin/python3 -c "
-import json, sys
-sys.path.insert(0, '.')
-from dotenv import load_dotenv; load_dotenv()
-import events, graph, state
-cfg = json.load(sys.stdin)
-# ... (use api/runner.py logic directly or drive via HTTP)
-"
-```
-
-Or drive via HTTP after `./orchestra` is running:
-
-```bash
-curl -s -X POST http://localhost:7890/sessions \
-  -H 'Content-Type: application/json' \
-  -d @sample_input.json | jq .
-
-# Then stream events:
-curl -N http://localhost:7890/sessions/<session_id>/events
-```
-
----
-
-## Notes
-
-- The **reviewer prefers synthesis**: it only triggers another round when a key question is genuinely unaddressed or the output is too vague to act on.
-- Agents within a round speak **sequentially** — each agent sees what previous agents in the same round said, enabling real back-and-forth rather than parallel monologues.
+MIT
