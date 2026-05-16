@@ -45,6 +45,9 @@ export default function SessionPage(props: Props) {
   const [agentsCollapsed, setAgentsCollapsed] = useState(false)
   const feedRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
+  // Tracks discussion_rounds from session_start so the event handler (a closure)
+  // can detect the final round_extraction without stale-state issues.
+  const totalRoundsRef = useRef(0)
 
   // Replay mode: load events immediately
   useEffect(() => {
@@ -60,13 +63,28 @@ export default function SessionPage(props: Props) {
       props.sessionId,
       (event) => {
         setEvents(prev => [...prev, event])
-        if (event.type === 'facilitator_framing') setStatus('framing')
-        else if (event.type === 'round_start') setStatus('running')
-        else if (event.type === 'clarification_request') setStatus('awaiting_clarification')
-        else if (event.type === 'clarification_answer') setStatus('running')
-        else if (event.type === 'synthesis') setStatus('synthesizing')
-        else if (event.type === 'session_end') setStatus('done')
-        else if (event.type === 'error') setStatus('error')
+        if (event.type === 'session_start') {
+          totalRoundsRef.current = event.discussion_rounds
+          setStatus('framing')
+        } else if (event.type === 'facilitator_framing') {
+          // status stays 'framing' until round_start; skeleton disappears when this event arrives
+        } else if (event.type === 'round_start') {
+          setStatus('running')
+        } else if (event.type === 'clarification_request') {
+          setStatus('awaiting_clarification')
+        } else if (event.type === 'clarification_answer') {
+          setStatus('running')
+        } else if (event.type === 'round_extraction') {
+          // Switch to synthesizing as soon as the last round finishes —
+          // before the synthesis LLM call begins — so the skeleton appears.
+          if (totalRoundsRef.current > 0 && event.round >= totalRoundsRef.current) {
+            setStatus('synthesizing')
+          }
+        } else if (event.type === 'session_end') {
+          setStatus('done')
+        } else if (event.type === 'error') {
+          setStatus('error')
+        }
       },
       () => setStatus('error'),
     )
@@ -160,6 +178,18 @@ export default function SessionPage(props: Props) {
             />
           ))}
 
+          {status === 'framing' &&
+            props.mode === 'live' &&
+            !events.some(e => e.type === 'facilitator_framing') && (
+            <FramingSkeleton />
+          )}
+
+          {status === 'synthesizing' &&
+            props.mode === 'live' &&
+            !events.some(e => e.type === 'synthesis') && (
+            <SynthesisSkeleton />
+          )}
+
           {status === 'done' && <div className="h-16" />}
         </div>
       </div>
@@ -224,6 +254,27 @@ function SessionStartBlock({ event }: { event: SessionStartEvent }) {
         <span>{event.discussion_rounds} round{event.discussion_rounds !== 1 ? 's' : ''}</span>
         <Dot />
         <span>{event.agents.map(a => a.name).join(', ')}</span>
+      </div>
+    </div>
+  )
+}
+
+function FramingSkeleton() {
+  return (
+    <div className="py-4 border-b border-[var(--c-border-subtle)] mb-1 animate-pulse">
+      <div className="text-[11px] text-[var(--c-muted)] font-mono mb-2.5">⬡ framing</div>
+      <div className="space-y-2 mb-4">
+        <div className="h-2.5 w-full rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-11/12 rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-4/5 rounded bg-[var(--c-border)]" />
+      </div>
+      <div className="text-[10px] uppercase tracking-widest text-[var(--c-muted-2)] mb-2">
+        Key questions
+      </div>
+      <div className="space-y-2">
+        <div className="h-2.5 w-3/4 rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-5/6 rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-2/3 rounded bg-[var(--c-border)]" />
       </div>
     </div>
   )
@@ -479,6 +530,33 @@ function ReviewBlock({ event }: { event: ReviewEvent }) {
         {event.decision}
       </span>
       <span className="text-[11px] text-[var(--c-muted)]">{event.reason}</span>
+    </div>
+  )
+}
+
+function SynthesisSkeleton() {
+  return (
+    <div className="pt-5 mt-2 border-t-2 border-[var(--c-border)]">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-[11px] font-mono text-[var(--c-muted)]">◈ synthesis</span>
+        <div className="h-2 w-16 rounded bg-[var(--c-border)] animate-pulse" />
+      </div>
+      <div className="border border-[var(--c-border)] rounded-lg px-5 py-4 mb-4 bg-[var(--c-surface-deep)] space-y-2.5 animate-pulse">
+        <div className="h-4 w-1/2 rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-full rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-5/6 rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-full rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-4/5 rounded bg-[var(--c-border)]" />
+        <div className="mt-3 h-3 w-2/5 rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-full rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-3/4 rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-full rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-5/6 rounded bg-[var(--c-border)]" />
+      </div>
+      <div className="space-y-1.5 animate-pulse">
+        <div className="h-2.5 w-full rounded bg-[var(--c-border)]" />
+        <div className="h-2.5 w-4/5 rounded bg-[var(--c-border)]" />
+      </div>
     </div>
   )
 }
