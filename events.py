@@ -1,6 +1,5 @@
 """
 Streaming NDJSON event emitter.
-Prints to stdout when used from the CLI (main.py).
 Routes to a per-session asyncio Queue when running inside the FastAPI server —
 controlled via the _queue_ctx contextvar, which run_in_executor inherits from
 the calling coroutine's context.
